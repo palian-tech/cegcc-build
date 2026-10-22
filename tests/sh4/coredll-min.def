@@ -1,0 +1,4 @@
+LIBRARY COREDLL.dll
+EXPORTS
+MessageBoxW
+wsprintfW
