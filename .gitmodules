@@ -9,7 +9,7 @@
 [submodule "gcc"]
 	path = gcc
 	url = https://github.com/palian-tech/gcc
-	branch = ce-9.3.0-x86
+	branch = sh4-mingw32ce
 [submodule "mingw"]
 	path = mingw
 	url = https://github.com/palian-tech/mingwrt

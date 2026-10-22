@@ -1,6 +1,6 @@
 # sh4-mingw32ce: Windows CE SH-4 target for CeGCC
 
-Status: specification, not started. Branch: `sh4-mingw32ce`.
+Status: M0–M2 done (toolchain up to GCC + libgcc; ABI in [ABI.md](ABI.md)). Branch: `sh4-mingw32ce`.
 
 ## Goal
 
