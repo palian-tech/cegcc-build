@@ -22,7 +22,8 @@ arm-mingw32ce) MACHINE=0x01c0 FMT=pei-arm-wince-little ;;
 esac
 
 CFLAGS="-O2 -Wall -Werror -D_WIN32_WCE=0x500"
-LDFLAGS="-Wl,--image-base,0x10000 -Wl,--subsystem,wince:5.00 -s"
+LDFLAGS="-Wl,--image-base,0x10000 -Wl,--subsystem,wince:5.00 -s
+  -Wl,--no-insert-timestamp"
 
 "$T-gcc" $CFLAGS "$HERE/hello.c" -o "$OUT/hello-$T.exe" $LDFLAGS
 "$T-gcc" $CFLAGS "$HERE/mapio.c" -o "$OUT/mapio-$T.exe" $LDFLAGS -lceddk

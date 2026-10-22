@@ -10,7 +10,7 @@ Branch `sh4-mingw32ce` of `palian-tech/cegcc-build`. Specification:
 | M2 — GCC `sh4-mingw32ce`, Microsoft ABI, ABI tests | done |
 | M3 — runtime (mingwrt, w32api), both targets in one prefix | done |
 | M4 — test programs (both targets) | done |
-| M5 — CI, published image | not started |
+| M5 — CI, published image | done |
 
 ## Commits per fork
 
@@ -99,19 +99,41 @@ stage runs all of them, `build.sh` for both targets.
   and `ceddk.dll`.
 
 Built with `-O2 -D_WIN32_WCE=0x500 -Wl,--image-base,0x10000
--Wl,--subsystem,wince:5.00 -s`. SH-4: machine 0x01a6; ARM: machine 0x01c0
+-Wl,--subsystem,wince:5.00 -s -Wl,--no-insert-timestamp` (no link time in
+the PE header, so the same toolchain gives the same bytes). SH-4: machine 0x01a6; ARM: machine 0x01c0
 (arm-mingw32ce has always written `IMAGE_FILE_MACHINE_ARM`; such binaries
 run on the ARM unit). Running them in the device emulators is the
 maintainer's step.
 
-Clean-clone build at cegcc-build `e0f92ea` (sha256):
+Local clean-clone build (sha256; the CI artifact `cegcc-test-programs`
+carries its own `SHA256SUMS`):
 
 ```
-625be32ac6e3dd09fe8ef6499445fb16638195f72c6d3e69b5c9d574a12f376c  hello-sh4-mingw32ce.exe
-867d2007e4055a1a990d63e1a649a4181b63df7a2c089e9314eee066b51b7dcd  mapio-sh4-mingw32ce.exe
-707429994bea0509794e57015b4c89f84ec1e7043e955994eb4f6fa725b9bafb  hello-arm-mingw32ce.exe
-be317e2b9b023f55aeb9b0de5998b13102a4656c4509c633a342578bf1c90e03  mapio-arm-mingw32ce.exe
+229ddd07e8a6db1f36c04faa69398d72cbce5d53765da54661bcf10b34294217  hello-sh4-mingw32ce.exe
+439c7d279f0707a53b14cd70d66f9a8de41c1db261f3bbdb68ee8f0b9e2bc08b  mapio-sh4-mingw32ce.exe
+dd5cf7cbc35dbec6e4253543d654c3564c2b93283ca1b6858934b3fbbd7ae7eb  hello-arm-mingw32ce.exe
+b94f5f71e02e4936fabc9440c7f636e720f204329f725db9125831cb99dd0a7a  mapio-arm-mingw32ce.exe
 ```
+
+## CI and image (M5)
+
+`.github/workflows/image.yml` (workflow `image`), on pushes to
+`sh4-mingw32ce`, tags `v*`, pull requests and manual dispatch:
+
+1. builds the Dockerfile `programs` target with the GitHub Actions layer
+   cache (`type=gha,mode=max`; a GCC-only change reuses the binutils
+   layer), which runs the whole `test` stage;
+2. uploads `out/` (four executables + `SHA256SUMS`) as the artifact
+   `cegcc-test-programs`;
+3. builds the final image from the same cache and pushes
+   `ghcr.io/palian-tech/cegcc:edge` (branch pushes) or `:<tag>` and
+   `:latest` (tags `v9.3.0-ce.N`). Pull requests do not push.
+
+Release: `git tag v9.3.0-ce.1 && git push origin v9.3.0-ce.1`.
+The package is created by the first push; its visibility (private by
+default for a new package) is set in the organization's package settings.
+
+Using the image: README.rst, section "Docker image".
 
 Clean-clone verification (done after each milestone):
 
@@ -153,3 +175,15 @@ docker build --network host --target test .
 
 * M0 consumer smoke test numbers (LeafSDTools ARM) were reported in the
   session only, as required by the scope rules.
+
+## Next steps
+
+* Maintainer: run the four executables of the `cegcc-test-programs`
+  artifact in the `clarion-qy7` (SH-4) and `clarion-qy8` (ARM) emulators;
+  `hello` must show `PASS`. Build consumers from
+  `ghcr.io/palian-tech/cegcc:edge`.
+* First release tag `v9.3.0-ce.1` once the emulator runs pass.
+* After the first milestone (out of scope so far): FPU code generation
+  (`-m4-single`, `FPSCR.PR` handling, `float`/`double` in FPU registers per
+  the `/Qsh4` reference functions `fl`, `callfl`, `calldbl`); usable debug
+  info (`.secrel32` in SH gas); `dllimport` for data.
