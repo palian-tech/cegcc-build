@@ -35,6 +35,18 @@ keep the existing upstream branches as the base:
 
 Create a `sh4-mingw32ce` branch in each fork you change.
 
+## Repository scope
+
+This repository is a **generic toolchain**. Do not commit anything specific
+to one consumer (no LeafSDTools build scripts, notes or references outside
+this specification). Consumers, including LeafSDTools, use the published
+image from their own CI. A consumer may be built inside the sandbox as a
+smoke test; report its result in messages only.
+
+Keep `docs/sh4/STATUS.md` current: what is done, the exact commands to build
+and to run every test, commits per fork, known limitations, next steps. A
+new session must be able to continue from it alone.
+
 ## Known facts (verified, do not re-derive)
 
 Ground truth for the calling convention is
@@ -119,11 +131,23 @@ in reports (tail and error lines only).
    function, that the call sequences and return paths match the reference.
 4. **M3 — runtime.** mingwrt/w32api built for SH-4: `crt` startup with
    `WinMainCRTStartup`, import libraries for `coredll` and `ceddk`, headers.
-5. **M4 — programs.** (a) a minimal program that calls `MessageBoxW` and
-   `wsprintfW`; (b) LeafSDTools for SH-4. Both as PE files with machine
-   `0x01A6`, subsystem Windows CE 5.00, image base `0x10000`.
-6. **M5 — one Docker image** building both targets, published as
-   `ghcr.io/palian-tech/cegcc` (or similar), and a short README section.
+5. **M4 — programs.** A test program under `tests/sh4/` built from our own
+   sources: `WinMain` that calls `MessageBoxW` and `wsprintfW`, uses a
+   struct return, a 64-bit argument and signed/unsigned division, and
+   imports only `coredll` (and `ceddk` through `MmMapIoSpace` in a separate
+   tiny program). PE machine `0x01A6`, subsystem Windows CE 5.00, image base
+   `0x10000`. The same program built for `arm-mingw32ce` as well. The
+   maintainer runs both in the device emulators. LeafSDTools for SH-4 only
+   as an in-sandbox smoke test (see Repository scope).
+6. **M5 — one Docker image with both targets.** One image, one prefix
+   (e.g. `/opt/cegcc`), containing `arm-mingw32ce-*` and `sh4-mingw32ce-*`.
+   A GitHub Actions workflow in this repository builds it, runs the binutils
+   and ABI tests and the M4 programs' build, and:
+   * on every push to `sh4-mingw32ce`: publishes `ghcr.io/palian-tech/cegcc:edge`
+     and uploads the M4 executables (both targets) as a workflow artifact;
+   * on tags `v*` (scheme `v9.3.0-ce.N`): publishes the same tag and `latest`.
+   Use Docker layer caching so a GCC-only change does not rebuild binutils.
+   Short README section: pulling the image and compiling for each target.
 
 ## Acceptance
 
@@ -134,11 +158,12 @@ Done in this repository (cloud work):
 * `objdump -p` of the M4 executables shows machine `0x01A6`, subsystem
   `WindowsCE GUI` 5.00, base `0x10000`, and only `COREDLL.dll` / `ceddk.dll`
   (plus `commctrl.dll` if used) imports.
+* The Actions workflow is green and the image and M4 artifacts are published.
 
 Done by the maintainer locally (cannot be done in the cloud): run the M4
-executables inside the `clarion-qy7` device emulator, and ARM LeafSDTools in
-`clarion-qy8`. Report artifacts (EXE files and their hashes) so the
-maintainer can run them.
+executables (both targets) inside the `clarion-qy7` / `clarion-qy8` device
+emulators, and consumer builds from the published image. Report the
+artifact names and hashes so the maintainer can run them.
 
 ## Out of scope
 
