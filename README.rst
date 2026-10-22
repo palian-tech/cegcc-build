@@ -1,18 +1,29 @@
-This is a fork of https://github.com/MaxKellermann/cegcc-build to build a CeGCC 9.3.0 toolchain.
-Unlike Max Kellermann's repo, this one also targets x86 Windows CE devices.
+CeGCC for Windows CE on ARM and SH-4
+====================================
 
-Clone this repository using::
+A CeGCC 9.3.0 toolchain (GCC 9.3, binutils 2.34, mingwrt, w32api) for
+Windows CE, with two targets built into one prefix:
 
- git clone git://github.com/enlyze/cegcc-build
+* ``arm-mingw32ce`` -- ARM Windows CE.
+* ``sh4-mingw32ce`` -- Hitachi/Renesas SH-4 Windows CE 5.0, following the
+  calling convention of the Microsoft SH-4 compiler (eVC4). The convention is
+  tested by linking real Microsoft-compiled code with GCC code and calling in
+  both directions (``docs/sh4/ABI.md``).
 
-To build::
+It is published as a Docker image (below), so Windows CE programs for both
+CPUs can be built in CI without proprietary tools.
 
+Based on `enlyze/cegcc-build <https://github.com/enlyze/cegcc-build>`_ and
+`MaxKellermann/cegcc-build <https://github.com/MaxKellermann/cegcc-build>`_;
+``i386-mingw32ce`` from the ENLYZE fork still builds the same way.
+
+Building from source::
+
+ git clone https://github.com/palian-tech/cegcc-build
  cd cegcc-build
  git submodule update --init
- ./build_cf.sh /where/to/install i386-mingw32ce
-
-Alternatively, you can also build an arm-mingw32ce toolchain.
-This version builds up on Max Kellermann's work and enables some more modern C++ features and Windows CE API definitions.
+ ./build_cf.sh /where/to/install arm-mingw32ce
+ ./build_cf.sh /where/to/install sh4-mingw32ce
 
 Docker image (arm-mingw32ce and sh4-mingw32ce)
 ==============================================
