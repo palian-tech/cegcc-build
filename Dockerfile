@@ -4,7 +4,11 @@
 #   docker build --network host -t cegcc .
 #
 # Other stages:
-#   --target test       also runs the sh4 binutils and ABI tests
+#   --target test       also runs the sh4 binutils, ABI and qemu tests and
+#                       builds the test programs of tests/sh4/prog for
+#                       every target
+#   --target programs   only those programs, with SHA256SUMS
+#                       (use with --output type=local,dest=DIR)
 #
 # The build context is this repository including the submodules. Each
 # submodule is copied in its own layer, so a GCC-only change does not
@@ -59,11 +63,18 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 qemu-user \
     && rm -rf /var/lib/apt/lists/*
+ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 WORKDIR /src
 COPY docs docs
 COPY tests tests
 RUN set -e; \
     tests/sh4/binutils-test.sh; \
-    tests/sh4/abi/run-abi-test.sh /tmp/abi
+    tests/sh4/abi/run-abi-test.sh /tmp/abi; \
+    tests/sh4/prog/run-hello.sh /tmp/hello; \
+    for t in ${TARGETS}; do tests/sh4/prog/build.sh $t /out; done; \
+    cd /out && sha256sum *.exe | tee SHA256SUMS
+
+FROM scratch AS programs
+COPY --from=test /out/ /
 
 FROM image
