@@ -5,7 +5,7 @@
 [submodule "binutils"]
 	path = binutils
 	url = https://github.com/palian-tech/binutils-gdb
-	branch = ce-2.34
+	branch = sh4-mingw32ce
 [submodule "gcc"]
 	path = gcc
 	url = https://github.com/palian-tech/gcc

@@ -33,22 +33,6 @@ rm -rf ${PREFIXDIR}
 mkdir ${PREFIXDIR}
 
 
-# Changes to the submodules that are not (yet) in their branches are kept as
-# patches/<submodule>/*.patch and applied here. A patch that is already
-# applied (e.g. in a development checkout) is skipped.
-for dir in binutils gcc mingw w32api; do
-    for p in patches/${dir}/*.patch; do
-        [[ -e "$p" ]] || continue
-        if patch -d ${dir} -p1 -R -s -f --dry-run < "$p" > /dev/null 2>&1; then
-            echo "Already applied: $p"
-        else
-            echo "Applying: $p"
-            patch -d ${dir} -p1 -N -s < "$p"
-        fi
-    done
-done
-
-
 # --enable-threads=win32 of our GCC build wants to include <windows.h> from w32api.
 # But building w32api requires a target GCC.
 #
