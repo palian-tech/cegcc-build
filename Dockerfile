@@ -1,37 +1,69 @@
-# Reproducible CeGCC toolchain image.
+# CeGCC toolchain image: arm-mingw32ce and sh4-mingw32ce in /opt/cegcc.
 #
+#   git submodule update --init
 #   docker build --network host -t cegcc .
-#   docker build --build-arg TARGETS="arm-mingw32ce sh4-mingw32ce" -t cegcc .
 #
-# The submodules must be checked out (git submodule update --init) before
-# building; the build context is this repository including them.
+# Other stages:
+#   --target test       also runs the sh4 binutils and ABI tests
+#
+# The build context is this repository including the submodules. Each
+# submodule is copied in its own layer, so a GCC-only change does not
+# rebuild binutils.
 
 # ubuntu:24.04, pinned by digest (docker.io/library/ubuntu, same digest on
 # mirror.gcr.io/library/ubuntu).
 ARG BASE_IMAGE=ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
 
-FROM ${BASE_IMAGE} AS build
+FROM ${BASE_IMAGE} AS build-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential flex bison texinfo file \
         libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY . .
-ARG TARGETS="arm-mingw32ce"
-ARG PREFIX=/opt/cegcc
-RUN set -e; mkdir -p ${PREFIX}; for t in ${TARGETS}; do \
-        ./build_cf.sh ${PREFIX}/$t $t > /src/build-$t.log 2>&1 \
-            || { tail -n 60 /src/build-$t.log; exit 1; }; \
-        tail -n 3 /src/build-$t.log; \
-    done
+COPY build_cf.sh ./
 
-FROM ${BASE_IMAGE}
+FROM build-base AS binutils
+ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
+ARG PREFIX=/opt/cegcc
+COPY binutils binutils
+RUN set -e; for t in ${TARGETS}; do \
+        ./build_cf.sh ${PREFIX} $t binutils > /src/binutils-$t.log 2>&1 \
+            || { tail -n 60 /src/binutils-$t.log; exit 1; }; \
+        tail -n 3 /src/binutils-$t.log; \
+    done; rm -rf build-*
+
+FROM binutils AS gcc
+ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
+ARG PREFIX=/opt/cegcc
+COPY mingw mingw
+COPY w32api w32api
+COPY gcc gcc
+RUN set -e; for t in ${TARGETS}; do \
+        ./build_cf.sh ${PREFIX} $t gcc > /src/gcc-$t.log 2>&1 \
+            || { tail -n 60 /src/gcc-$t.log; exit 1; }; \
+        tail -n 3 /src/gcc-$t.log; \
+    done; rm -rf build-*
+
+FROM ${BASE_IMAGE} AS image
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         make git libgmp10 libmpfr6 libmpc3 zlib1g ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-ARG TARGETS="arm-mingw32ce"
 ARG PREFIX=/opt/cegcc
-COPY --from=build ${PREFIX} ${PREFIX}
-RUN for t in ${TARGETS}; do ln -s ${PREFIX}/$t/bin/$t-* /usr/local/bin/; done
+COPY --from=gcc ${PREFIX} ${PREFIX}
+ENV PATH=${PREFIX}/bin:$PATH
+
+FROM image AS test
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 qemu-user \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY docs docs
+COPY tests tests
+RUN set -e; \
+    tests/sh4/binutils-test.sh; \
+    tests/sh4/abi/run-abi-test.sh /tmp/abi
+
+FROM image

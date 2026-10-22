@@ -3,19 +3,24 @@
 # Builds a Binutils & GCC toolchain for Windows CE software development.
 #
 # Usage:
-#   ./build_cf.sh PREFIX_DIRECTORY
+#   ./build_cf.sh PREFIX_DIRECTORY TARGET [STEP...]
 #
 # GNU tools can be confusing enough, so this script is meant to be simple:
 # No branches, no options, just rebuilds the entire toolchain in the right order.
-# If you want to skip a few steps, just comment them out.
+# If you want to skip a few steps, name the ones you want:
+#   binutils  Binutils
+#   gcc       GCC, mingw and w32api (needs the binutils of the same prefix)
+#
+# Several targets can share one prefix; build them one after the other.
+# Build directories are build-TARGET/* in the current directory.
 #
 # Written by Colin Finck for ENLYZE GmbH
 #
 
 set -eu
 
-if [[ $# -ne 2 ]]; then
-    echo "Usage: ./build_cf.sh PREFIXDIR TARGET"
+if [[ $# -lt 2 ]]; then
+    echo "Usage: ./build_cf.sh PREFIXDIR TARGET [binutils] [gcc]"
     echo
     echo "Supported targets are":
     echo "  - arm-mingw32ce"
@@ -28,10 +33,36 @@ J="-j `nproc`"
 OLDPATH="$PATH"
 PREFIXDIR="$1"
 TARGET="$2"
+shift 2
+STEPS="${*:-binutils gcc}"
+SRCDIR="$(cd "$(dirname "$0")" && pwd)"
+BUILDDIR="$PWD/build-${TARGET}"
 
-rm -rf ${PREFIXDIR}
-mkdir ${PREFIXDIR}
+mkdir -p "${PREFIXDIR}" "${BUILDDIR}"
+cd "${BUILDDIR}"
 
+
+if [[ " $STEPS " = *" binutils "* ]]; then
+
+echo "##################################"
+echo "# BINUTILS                       #"
+echo "##################################"
+
+rm -rf binutils
+mkdir binutils
+cd binutils
+"${SRCDIR}"/binutils/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
+    --disable-multilib --disable-werror --enable-lto --enable-plugins \
+    --with-zlib=yes --disable-nls --disable-unit-tests --disable-shared \
+    --without-python
+make $J
+make install
+cd ..
+
+fi
+
+
+if [[ " $STEPS " = *" gcc "* ]]; then
 
 # --enable-threads=win32 of our GCC build wants to include <windows.h> from w32api.
 # But building w32api requires a target GCC.
@@ -39,28 +70,10 @@ mkdir ${PREFIXDIR}
 # GCC solves this circular dependency by considering the optional directory "winsup".
 # "winsup/mingw/include" and "winsup/w32api/include" are added to the include path when
 # building target components.
-cd gcc
-rm -rf winsup
-mkdir winsup
-cd winsup
-ln -s ../../mingw
-ln -s ../../w32api
-cd ../..
-
-
-echo "##################################"
-echo "# BINUTILS                       #"
-echo "##################################"
-
-rm -rf binutils-build
-mkdir binutils-build
-cd binutils-build
-../binutils/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
-    --disable-multilib --disable-werror --enable-lto --enable-plugins \
-    --with-zlib=yes --disable-nls --disable-unit-tests --disable-shared
-make $J
-make install
-cd ..
+rm -rf "${SRCDIR}"/gcc/winsup
+mkdir "${SRCDIR}"/gcc/winsup
+ln -s ../../mingw "${SRCDIR}"/gcc/winsup/mingw
+ln -s ../../w32api "${SRCDIR}"/gcc/winsup/w32api
 
 
 echo "##################################"
@@ -72,10 +85,13 @@ if [[ "$TARGET" = "arm-mingw32ce" || "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+="--disable-__cxa_atexit"
 fi
 
-rm -rf gcc-build
-mkdir gcc-build
-cd gcc-build
-../gcc/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
+# The binutils of this prefix.
+export PATH="${PREFIXDIR}/bin:$OLDPATH"
+
+rm -rf gcc
+mkdir gcc
+cd gcc
+"${SRCDIR}"/gcc/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
     --enable-languages=c,c++ --disable-shared --disable-multilib --disable-nls \
     --disable-werror --disable-win32-registry --disable-libstdcxx-verbose \
     --enable-threads=win32 ${ADDITIONAL_GCC_PARAMETERS}
@@ -92,17 +108,14 @@ make install-target-libgcc
 cd ..
 
 
-# mingw and w32api need to find the toolchain we just built.
-export PATH="${PREFIXDIR}/bin:$PATH"
-
 echo "##################################"
 echo "# MINGW                          #"
 echo "##################################"
 
-rm -rf mingw-build
-mkdir mingw-build
-cd mingw-build
-../mingw/configure --prefix="${PREFIXDIR}" --host="${TARGET}" --target="${TARGET}"
+rm -rf mingw
+mkdir mingw
+cd mingw
+"${SRCDIR}"/mingw/configure --prefix="${PREFIXDIR}" --host="${TARGET}" --target="${TARGET}"
 make $J
 make install
 cd ..
@@ -112,10 +125,10 @@ echo "##################################"
 echo "# W32API                         #"
 echo "##################################"
 
-rm -rf w32api-build
-mkdir w32api-build
-cd w32api-build
-../w32api/configure --prefix="${PREFIXDIR}" --host="${TARGET}" --target="${TARGET}"
+rm -rf w32api
+mkdir w32api
+cd w32api
+"${SRCDIR}"/w32api/configure --prefix="${PREFIXDIR}" --host="${TARGET}" --target="${TARGET}"
 make $J
 make install
 cd ..
@@ -130,6 +143,9 @@ echo "##################################"
 echo "# REST OF GCC                    #"
 echo "##################################"
 
-cd gcc-build
+cd gcc
 make $J
 make install
+cd ..
+
+fi

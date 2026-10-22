@@ -1,7 +1,7 @@
 [submodule "w32api"]
 	path = w32api
 	url = https://github.com/palian-tech/w32api
-	branch = wip
+	branch = sh4-mingw32ce
 [submodule "binutils"]
 	path = binutils
 	url = https://github.com/palian-tech/binutils-gdb
@@ -13,4 +13,4 @@
 [submodule "mingw"]
 	path = mingw
 	url = https://github.com/palian-tech/mingwrt
-	branch = master
+	branch = sh4-mingw32ce

@@ -36,6 +36,17 @@ grep -q '^MajorSubsystemVersion[[:space:]]*5' "$W/p.txt" || fail "subsystem vers
 grep -q 'DLL Name: COREDLL.dll' "$W/p.txt" || fail "import"
 grep -q 'MessageBoxW' "$W/p.txt" || fail "imported name"
 
+# Two import libraries: gas must not pad dlltool's 20-byte import
+# descriptors (.idata$2), or the loader finds no thunks for the second DLL.
+"${T}dlltool" -d "$HERE/ceddk-min.def" -l "$W/libceddk.a"
+printf '\t.data\n\t.long\t_MmMapIoSpace\n' | "${T}as" -o "$W/ref.o"
+"${T}ld" -e _WinMainCRTStartup "$W/start.o" "$W/ref.o" "$W/libceddk.a" \
+    "$W/libcoredll.a" -o "$W/t2.exe"
+"${T}objdump" -p "$W/t2.exe" > "$W/p2.txt"
+[[ $(grep -c 'DLL Name:' "$W/p2.txt") = 2 ]] || fail "two import descriptors"
+grep -q 'MmMapIoSpace' "$W/p2.txt" && grep -q 'MessageBoxW' "$W/p2.txt" \
+    || fail "imports of two DLLs"
+
 # The jump stub loads the IAT slot and jumps through it.
 "${T}objdump" -d "$W/t.exe" | grep -A3 '<_MessageBoxW>:' > "$W/stub.txt"
 grep -q 'mov.l.*r0' "$W/stub.txt" && grep -q 'jmp.*@r0' "$W/stub.txt" \
