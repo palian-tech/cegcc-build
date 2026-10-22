@@ -92,6 +92,16 @@ link /base:0x00010000 /stack:0x10000,0x1000 /entry:WinMainCRTStartup
 `ci-cegcc-build` branch of the LeafSDTools fork (Makefile + `compat/`); the
 SH-4 build should become a target of the same Makefile.
 
+## Working environment
+
+The work may run in a sandbox without Docker. In that case build the
+toolchain natively (Debian/Ubuntu packages as needed) and keep the
+Dockerfile as the reproducible recipe; build and publish the image from a
+GitHub Actions workflow in this repository (`ghcr.io/palian-tech/...`).
+A full GCC build takes tens of minutes: build only the needed languages
+(`c,c++`), reuse build directories between iterations, and keep logs short
+in reports (tail and error lines only).
+
 ## Milestones
 
 1. **M0 — reproduce ARM from source.** `build_cf.sh PREFIX arm-mingw32ce` in a
