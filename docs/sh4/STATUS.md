@@ -105,8 +105,9 @@ the PE header, so the same toolchain gives the same bytes). SH-4: machine 0x01a6
 run on the ARM unit). Running them in the device emulators is the
 maintainer's step.
 
-Local clean-clone build (sha256; the CI artifact `cegcc-test-programs`
-carries its own `SHA256SUMS`):
+sha256, identical in the local clean-clone build and in CI run 3
+(artifact `cegcc-test-programs` of
+<https://github.com/palian-tech/cegcc-build/actions/runs/39843474518>):
 
 ```
 229ddd07e8a6db1f36c04faa69398d72cbce5d53765da54661bcf10b34294217  hello-sh4-mingw32ce.exe
@@ -129,9 +130,16 @@ b94f5f71e02e4936fabc9440c7f636e720f204329f725db9125831cb99dd0a7a  mapio-arm-ming
    `ghcr.io/palian-tech/cegcc:edge` (branch pushes) or `:<tag>` and
    `:latest` (tags `v9.3.0-ce.N`). Pull requests do not push.
 
+A newer run for the same ref cancels the older one (concurrency group
+`image-<ref>`), so an older run cannot overwrite `:edge`. A cached run
+(no toolchain change) takes about 6 minutes; a full one about 30.
+
 Release: `git tag v9.3.0-ce.1 && git push origin v9.3.0-ce.1`.
-The package is created by the first push; its visibility (private by
-default for a new package) is set in the organization's package settings.
+
+**The package `ghcr.io/palian-tech/cegcc` is private** (GitHub's default
+for a new package): anonymous `docker pull` fails with `unauthorized`.
+Make it public in the package settings (palian-tech → Packages → cegcc →
+Package settings → Change visibility), or log consumers in to ghcr.io.
 
 Using the image: README.rst, section "Docker image".
 
