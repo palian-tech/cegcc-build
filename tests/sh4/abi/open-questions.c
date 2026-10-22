@@ -1,7 +1,6 @@
-/* ABI points not covered by msvc-sh4-abi-reference.txt (see
-   docs/sh4/ABI.md).  Compile with the Microsoft SH-4 compiler like t.c
-   (clsh /Qsh4 /O2 /c open-questions.c), disassemble, and add the listing
-   to the reference.  */
+/* ABI points not covered by msvc-sh4-abi-reference.txt.  The Microsoft
+   SH-4 compiler's output for this file is
+   docs/sh4/msvc-sh4-abi-open-questions.txt; run-abi-test.sh uses it.  */
 
 typedef struct { char a, b, c; } S3;
 typedef struct { int a; short b; } S6;	/* 8 bytes with padding */

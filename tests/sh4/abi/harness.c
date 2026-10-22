@@ -1,8 +1,9 @@
 /* Runtime ABI test for sh4-mingw32ce.
 
-   The functions of docs/sh4/msvc-sh4-abi-reference.txt are re-assembled
-   from the Microsoft compiler's output (msvc2gas.py) and linked with this
-   file, compiled by sh4-mingw32ce-gcc.  Calls go both ways:
+   The functions of docs/sh4/msvc-sh4-abi-reference.txt and
+   docs/sh4/msvc-sh4-abi-open-questions.txt are re-assembled from the
+   Microsoft compiler's output (msvc2gas.py) and linked with this file,
+   compiled by sh4-mingw32ce-gcc.  Calls go both ways:
 
    - GCC -> MSVC: this file calls retS8, take64, ... and checks results.
    - MSVC -> GCC: the MSVC callers call2, callv, divu, ... call ext2, extv,
@@ -31,6 +32,26 @@ extern int takeS8 (S8 s, int y);
 extern int take64 (int a, i64 b, int c);
 extern int callv (int x);
 extern unsigned divu (unsigned a, unsigned b);
+
+/* From msvc-sh4-abi-open-questions.txt, /Qsh4 /O2.  */
+typedef struct { char a, b, c; } S3;
+typedef struct { short a, b, c; } S6p;
+typedef struct { char a[5]; } S5;
+extern int call_r7 (int x);
+extern int callv_r7 (int x);
+extern int take_r7 (int a, int b, int c, i64 d, int e);
+extern S3 retS3 (int x);
+extern S5 retS5 (int x);
+extern S6p retS6p (int x);
+extern int useS3 (int x);
+extern int useS6p (int x);
+extern int callc (int x);
+extern char retc (int x);
+extern int takec (char c, short s);
+extern int keepmac (int a, int b);
+extern int divs (int a, int b);
+/* The same file compiled without /Qsh4 (software floating point).  */
+extern double calldbl_nofpu (int x);
 
 extern int sys_write (int fd, const char *buf, int len);
 extern int home_clobber (int a, int b, int c, volatile void *local);
@@ -154,6 +175,87 @@ extv (const char *f, ...)
   return sum;
 }
 
+int
+ext_r7 (int a, int b, int c, i64 d, int e)
+{
+  nrec = 0;
+  record (a);
+  record (b);
+  record (c);
+  record ((int) d);
+  record ((int) (d >> 32));
+  record (e);
+  return 0;
+}
+
+S3
+extS3 (int x)
+{
+  S3 s;
+  nrec = 0;
+  record (x);
+  s.a = (char) x;
+  s.b = 11;
+  s.c = 22;
+  return s;
+}
+
+S6p
+extS6p (int x)
+{
+  S6p s;
+  nrec = 0;
+  record (x);
+  s.a = (short) x;
+  s.b = 11;
+  s.c = 33;
+  return s;
+}
+
+char
+extc (char c, short s)
+{
+  nrec = 0;
+  record (c);
+  record (s);
+  return (char) (c + 1);
+}
+
+/* Uses mul.l, i.e. clobbers MACL.  */
+int
+extmul (int a, int b)
+{
+  volatile int va = a, vb = b;
+  return va * vb + 1;
+}
+
+double
+extdbl (double d, int i)
+{
+  nrec = 0;
+  record ((int) d);
+  record (i);
+  return d * 2 + i;
+}
+
+/* The coredll floating-point helpers used by code compiled without
+   /Qsh4, imported through __imp_ pointers: results and operands by
+   address.  */
+static void
+itod_impl (double *r, int x)
+{
+  *r = x;
+}
+
+static void
+addd_impl (double *r, const double *a, const double *b)
+{
+  *r = *a + *b;
+}
+
+void (*_imp___itod) (double *, int) = itod_impl;
+void (*_imp___addd) (double *, const double *, const double *) = addd_impl;
+
 /* coredll's unsigned division helpers, as called by divu.  Written
    without '/' and '%', which would call these functions.  */
 static unsigned
@@ -190,6 +292,26 @@ _modlu (unsigned a, unsigned b)
   nmod++;
   udivmod (a, b, &r);
   return r;
+}
+
+static int ndivs, nmods;
+
+int
+_divls (int a, int b)
+{
+  unsigned r, q;
+  ndivs++;
+  q = udivmod (a < 0 ? -(unsigned) a : a, b < 0 ? -(unsigned) b : b, &r);
+  return (a < 0) != (b < 0) ? -(int) q : (int) q;
+}
+
+int
+_modls (int a, int b)
+{
+  unsigned r;
+  nmods++;
+  udivmod (a < 0 ? -(unsigned) a : a, b < 0 ? -(unsigned) b : b, &r);
+  return a < 0 ? -(int) r : (int) r;
 }
 
 /* The 64-bit multiply helper called by ret64: result, a and b are passed
@@ -351,11 +473,9 @@ test_msvc_calls_gcc (void)
   }
 }
 
-/* Not covered by the reference: a 64-bit variadic argument that starts in
-   r7 and continues on the stack.  With a plain-pointer va_list over the
-   home area this only works if the value is split between r7 and @(16),
-   so that the argument words stay contiguous.  Both sides are GCC here
-   (a self-consistency check, not a proof of MSVC behaviour).  */
+/* A 64-bit variadic argument that starts in r7 is split between r7 and
+   @(16) (callv_r7), so the argument words stay contiguous.  Here both
+   sides are GCC.  */
 static i64 sum64v_result;
 
 static void __attribute__ ((noipa))
@@ -381,8 +501,102 @@ test_varargs64 (void)
 	 1 + 10 + 20 + big64 + 30);
 }
 
-/* GCC's own unsigned division must call __divlu/__modlu as well.  */
+/* Points settled by msvc-sh4-abi-open-questions.txt.  */
+static void
+test_open_questions (void)
+{
+  int x = seven;
+  int r;
+
+  /* A 64-bit argument starting in r7 is split: low word in r7, high
+     word at @(16,r15); the next argument at @(20,r15).  */
+  GUARDED ("call_r7", r = call_r7 (x));
+  check ("call_r7: d low", rec[3], 0);
+  check ("call_r7: d high", rec[4], x << 1);
+  check ("call_r7: e", rec[5], 4);
+  check ("call_r7: c", rec[2], 3);
+  GUARDED ("callv_r7", r = callv_r7 (x));
+  check ("callv_r7: arg 1", rec[0], 1);
+  check ("callv_r7: d low", rec[2], 0);
+  check ("callv_r7: d high", rec[3], x << 1);
+  check ("callv_r7: arg 5", rec[4], 4);
+  {
+    i64 d = ((i64) (x + 100) << 32) | 0xdeadu;
+    GUARDED ("take_r7", r = take_r7 (1, 2, 3, d, 50));
+    check ("take_r7", r, x + 100 + 50);
+  }
+
+  /* Structs of up to 4 bytes come back in r0, larger ones through the
+     hidden pointer, which the caller then takes from r0 (useS6p).  */
+  {
+    S3 s;
+    GUARDED ("retS3", s = retS3 (x));
+    check ("retS3.a", s.a, x);
+    check ("retS3.b", s.b, 1);
+    check ("retS3.c", s.c, 2);
+    GUARDED ("useS3", r = useS3 (x));
+    check ("useS3", r, 22);
+    check ("useS3: extS3 x", rec[0], x);
+  }
+  {
+    S5 s;
+    GUARDED ("retS5", s = retS5 (x));
+    check ("retS5.a[0]", s.a[0], x);
+    check ("retS5.a[4]", s.a[4], 1);
+  }
+  {
+    S6p s;
+    GUARDED ("retS6p", s = retS6p (x));
+    check ("retS6p.a", s.a, x);
+    check ("retS6p.b", s.b, 1);
+    check ("retS6p.c", s.c, 2);
+    GUARDED ("useS6p", r = useS6p (x));
+    check ("useS6p", r, 33);
+    check ("useS6p: extS6p x", rec[0], x);
+  }
+
+  /* char and short: both sides extend, neither relies on it.  */
+  {
+    static volatile int m = -2;
+    GUARDED ("callc", r = callc (m));
+    check ("callc", r, -2 + 1 + 1);
+    check ("callc: extc c", rec[0], -2);
+    check ("callc: extc s", rec[1], -2);
+    char c;
+    GUARDED ("retc", c = retc (m));
+    check ("retc", c, -1);
+    GUARDED ("takec", r = takec ((char) m, (short) m));
+    check ("takec", r, -4);
+  }
+
+  /* MACL is call-clobbered: keepmac multiplies again after the call.  */
+  GUARDED ("keepmac", r = keepmac (x, 5));
+  check ("keepmac", r, (x * 5 + 1) + x * 5 * x);
+
+  /* Signed division through __modls and __divls.  */
+  {
+    int want = (-1000 - x) / 9 + (-1000 - x) % 9;
+    ndivs = nmods = 0;
+    GUARDED ("divs", r = divs (-1000 - x, 9));
+    check ("divs", r, want);
+    check ("divs: __divls calls", ndivs, 1);
+    check ("divs: __modls calls", nmods, 1);
+  }
+
+  /* Software floating point: double arguments in two registers, double
+     results through the hidden pointer.  */
+  {
+    double d;
+    GUARDED ("calldbl", d = calldbl_nofpu (x));
+    check ("calldbl", (i64) d, 3 * x + 1);
+    check ("calldbl: extdbl d", rec[0], x);
+    check ("calldbl: extdbl i", rec[1], x);
+  }
+}
+
+/* GCC's own division must call the coredll helpers as well.  */
 static volatile unsigned big = 0xfffffff1u, nine = 9;
+static volatile int sbig = -1000003, snine = 9;
 
 static void
 test_gcc_division (void)
@@ -395,6 +609,15 @@ test_gcc_division (void)
   check ("umod", m, 0xfffffff1u % 9);
   check ("udiv: __divlu calls", ndiv, 1);
   check ("umod: __modlu calls", nmod, 1);
+
+  int sq, sm;
+  ndivs = nmods = 0;
+  sq = sbig / snine;
+  sm = sbig % snine;
+  check ("sdiv", sq, -1000003 / 9);
+  check ("smod", sm, -1000003 % 9);
+  check ("sdiv: __divls calls", ndivs, 1);
+  check ("smod: __modls calls", nmods, 1);
 }
 
 int
@@ -405,6 +628,7 @@ test_main (void)
   test_msvc_calls_gcc ();
   test_gcc_division ();
   test_varargs64 ();
+  test_open_questions ();
   if (failures)
     {
       put ("ABI test: FAILED\n");

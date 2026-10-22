@@ -14,11 +14,15 @@ binutils and gcc, python3 and qemu-sh4.
 1. `msvc2gas.py` turns the Microsoft listings back into assembly,
    instruction for instruction (the literal pools and relocations stay at the
    same offsets). The re-assembled code is the real MSVC code, not a
-   re-implementation.
+   re-implementation. The script uses
+   [`msvc-sh4-abi-reference.txt`](msvc-sh4-abi-reference.txt) and both
+   sections of
+   [`msvc-sh4-abi-open-questions.txt`](msvc-sh4-abi-open-questions.txt):
+   `/Qsh4 /O2`, plus `calldbl` from the build without `/Qsh4`.
 2. `harness.c` is compiled by sh4-mingw32ce-gcc and linked with that code.
    It calls the MSVC functions (GCC → MSVC) and defines the functions the
-   MSVC code calls, such as `ext2`, `extv` and `__divlu` (MSVC → GCC). Each
-   callee records the arguments it received.
+   MSVC code calls, such as `ext2`, `extv`, `extS3` and `__divls`
+   (MSVC → GCC). Each callee records the arguments it received.
 3. `pe2elf.py` wraps the PE image for qemu-sh4, and `rt.s` supplies the
    entry point and the exit/write system calls.
 
@@ -37,42 +41,39 @@ The script also compiles the reference `t.c` with GCC and keeps
 
 ## Points proven against the reference
 
-| # | Rule | Reference functions | GCC side |
-|---|---|---|---|
-| 2 | The caller always reserves 16 bytes of home area below the stack arguments, and the callee may write into it | `call2`, `call5`, `take64`, `callv` | `REG_PARM_STACK_SPACE` = 16, `OUTGOING_REG_PARM_STACK_SPACE` |
-| 3 | Arguments 1–4 go in `r4`..`r7`, the rest at `@(16,r15)` and up. A 64-bit argument takes two registers with no even alignment. An 8-byte struct also takes two registers | `call5`, `take64`, `takeS8`, `callv` | standard SH assignment (no `-mdalign`) |
-| 3 | Varargs follow the same placement. `va_list` is a plain pointer: the callee spills the anonymous registers into the home area | `callv` | `sh_setup_incoming_varargs` and `sh_build_builtin_va_list` |
-| 4 | 32-bit results come back in `r0`, a 4-byte struct too | `retS4`, `call2` | — |
-| 4 | 64-bit values and structs of 8 or more bytes are returned through a hidden pointer in `r4`, which the callee also returns in `r0` | `ret64`, `use64`, `retS8`, `useS8`, `retS20` | `sh_return_in_memory`, `sh_struct_value_rtx` |
-| 5 | Unsigned 32-bit `/` and `%` call `__divlu` / `__modlu` | `divu` | `sh_init_libfuncs`; the `udivsi3` expander `FAIL`s |
-| — | `r8`..`r14` and `PR` are callee-saved | all non-leaf functions | as GCC's SH default |
+| Rule | Reference functions | GCC side |
+|---|---|---|
+| The caller always reserves 16 bytes of home area below the stack arguments, and the callee may write into it | `call2`, `call5`, `take64`, `take_r7`, `callv` | `REG_PARM_STACK_SPACE` = 16, `OUTGOING_REG_PARM_STACK_SPACE` |
+| Arguments 1–4 go in `r4`..`r7`, the rest at `@(16,r15)` and up. A 64-bit argument takes two registers with no even alignment. An 8-byte struct also takes two registers | `call5`, `take64`, `takeS8`, `callv` | standard SH assignment (no `-mdalign`) |
+| A 64-bit argument that starts in `r7` is split: low word in `r7`, high word at `@(16,r15)`, and the next argument at `@(20,r15)`. The same holds for varargs | `call_r7`, `callv_r7`, `take_r7` | `sh_arg_partial_bytes` (SH4 without FPU doubles) |
+| Varargs follow the same placement. `va_list` is a plain pointer: the callee spills the anonymous registers into the home area | `callv`, `callv_r7` | `sh_setup_incoming_varargs` and `sh_build_builtin_va_list` |
+| Results of up to 4 bytes come back in `r0`. This includes structs of any size up to 4, so a 3-byte struct comes back in the low bytes | `retS4`, `retS3`, `useS3`, `call2` | `sh_return_in_memory`, and `sh_function_value` uses SImode for BLKmode |
+| Larger results go through a hidden pointer in `r4`, which the callee returns in `r0`. This covers 64-bit scalars, `double` without FPU, and structs of 5, 6, 8 and 20 bytes. Callers may use the pointer in `r0` | `ret64`, `use64`, `retS5`, `retS6p`, `useS6p`, `retS8`, `useS8`, `retS20`, `calldbl` (no FPU) | `sh_return_in_memory`, `sh_struct_value_rtx` |
+| `char` and `short` arguments are extended by the caller. Such results are extended by the callee. MSVC re-extends on both sides | `callc`, `retc`, `takec` | `sh_promote_prototypes`, `sh_promote_function_mode` |
+| Without FPU, a `double` argument takes two consecutive integer registers, low word first | `calldbl` (no FPU) | DFmode in general registers |
+| `MACH`/`MACL` are call-clobbered: the callee uses `mul.l` without saving them | `keepmac` | GCC's default SH ABI |
+| 32-bit `/` and `%` call `__divlu`/`__modlu` (unsigned) and `__divls`/`__modls` (signed) | `divu`, `divs` | `sh_init_libfuncs`; the `udivsi3`/`divsi3` expanders `FAIL` |
+| `r8`..`r14` and `PR` are callee-saved | all non-leaf functions | GCC's SH default |
 
 Under `-O2` GCC produces almost the same instruction sequences for `call2`,
 `call5`, `use64`, `useS8`, `callv`, `divu`, `retS4` and `retS8`.
 
+libgcc's 64-bit division also ends up calling `__divlu`. `LIBGCC_SPEC` links
+`-lcoredll` after `-lgcc`, so coredll provides it.
+
 ## Choices not covered by the reference
 
-These are implemented as described, but no reference test proves them yet.
-Compiling `tests/sh4/abi/open-questions.c` with eVC4 (`clsh /Qsh4 /O2 /c`)
-and adding its listing to the reference would settle them.
-
-* **64-bit argument starting in `r7`.** GCC splits it: low word in `r7`,
-  high word at `@(16,r15)`. This keeps the varargs array contiguous, which a
-  plain-pointer `va_list` over the home area requires. The harness only
-  checks this GCC against itself (`varargs 64-bit in r7/stack`).
-* **Structs of 5 to 7 bytes, and odd sizes up to 4 bytes.** GCC returns any
-  struct larger than 4 bytes through memory, and BLKmode structs of 3 bytes
-  as well.
-* **`char`/`short` arguments and results.** The caller widens them (as
-  prototyped C promotes), and neither side relies on the widening.
-* **MACH/MACL** are call-clobbered, as in GCC's default SH ABI.
-* **Bit-field layout** is the MS layout (`-mms-bitfields` behaviour), as on
-  arm-mingw32ce.
-* **Signed division** uses libgcc's `__sdivsi3_i4i`, which is linked
-  statically. The reference only shows the unsigned helpers.
-* **`float`/`double`** use the `-m4-nofpu` software floating point. A
-  `double` result counts as a 64-bit value and is returned through memory.
-  The FPU convention (`fl`, `callfl`, `FPSCR.PR`) is out of scope for now.
+* **Bit-field layout** is the MS layout by default (`-mms-bitfields`, which
+  `-mno-ms-bitfields` turns off), as on arm-mingw32ce. libgcc's fp-bit is
+  built with `-mno-ms-bitfields` because it overlays the IEEE formats with
+  bit-fields of mixed widths.
+* **Floating-point helpers.** Without `/Qsh4`, MSVC calls coredll helpers
+  through `__imp_` pointers (`__itod`, `__addd`), passing results and
+  operands by address. GCC uses libgcc's fp-bit instead. These helpers are
+  internal to each compiler, so no interface depends on the choice.
+* **FPU code** (`/Qsh4`: `fl`, `callfl`, `calldbl`, with `FPSCR.PR` switched
+  around `double` operations, and `float`/`double` passed in FPU registers)
+  is out of scope. The default is `-m4-nofpu`.
 
 ## Other target notes
 

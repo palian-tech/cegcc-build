@@ -1,6 +1,7 @@
 #!/bin/bash
 # Runtime ABI test: links the Microsoft SH-4 compiler's code for the
-# functions of docs/sh4/msvc-sh4-abi-reference.txt (re-assembled by
+# functions of docs/sh4/msvc-sh4-abi-reference.txt and
+# msvc-sh4-abi-open-questions.txt (re-assembled by
 # msvc2gas.py) with harness.c compiled by sh4-mingw32ce-gcc and runs the
 # result under qemu-sh4.  It also writes GCC's code for the same
 # functions next to the reference for review.
@@ -24,10 +25,23 @@ FUNCS="_call2 _call5 _ret64 _use64 _retS8 _retS4 _retS20 _useS8 _takeS8
 
 python3 -I "$HERE/msvc2gas.py" "$REF" "$OUT/msvc.s" $FUNCS
 ${T}as "$OUT/msvc.s" -o "$OUT/msvc.o"
+
+# msvc-sh4-abi-open-questions.txt: section 1 is /Qsh4 /O2 (calldbl needs
+# the FPU and is left out), section 2 the same without /Qsh4, from which
+# only the software floating-point calldbl is taken.
+OQ="$HERE/../../../docs/sh4/msvc-sh4-abi-open-questions.txt"
+python3 -I "$HERE/msvc2gas.py" "$OQ" "$OUT/msvc-oq.s" \
+    _call_r7 _callv_r7 _take_r7 _retS3 _retS5 _retS6p _useS3 _useS6p \
+    _callc _retc _takec _keepmac _divs
+python3 -I "$HERE/msvc2gas.py" --section 2 --suffix _nofpu "$OQ" \
+    "$OUT/msvc-oq2.s" _calldbl
+${T}as "$OUT/msvc-oq.s" -o "$OUT/msvc-oq.o"
+${T}as "$OUT/msvc-oq2.s" -o "$OUT/msvc-oq2.o"
 ${T}as "$HERE/rt.s" -o "$OUT/rt.o"
 $CC -O2 -ffreestanding -fno-builtin -c "$HERE/harness.c" -o "$OUT/harness.o"
 LIBGCC=$($CC -print-libgcc-file-name)
-${T}ld -e _start "$OUT/rt.o" "$OUT/harness.o" "$OUT/msvc.o" "$LIBGCC" \
+${T}ld -e _start "$OUT/rt.o" "$OUT/harness.o" "$OUT/msvc.o" \
+    "$OUT/msvc-oq.o" "$OUT/msvc-oq2.o" "$LIBGCC" \
     -o "$OUT/abi-test.exe"
 python3 -I "$HERE/pe2elf.py" "$OUT/abi-test.exe" "$OUT/abi-test.elf"
 chmod +x "$OUT/abi-test.elf"
