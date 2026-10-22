@@ -1,0 +1,624 @@
+# Reference: open-questions.c compiled by the Microsoft SH-4 compiler (clsh.exe 12.20.9518,
+# eVC4 SP4, run under Wine). Disassembly with capstone (CS_MODE_SH4, no FPU decoding);
+# '.byte' pairs are literal pool words or undecoded FPU instructions.
+# Section 1: clsh /Qsh4 /O2 /c   Section 2: clsh /O2 /c (no /Qsh4).
+
+## open-questions.c
+/* ABI points not covered by msvc-sh4-abi-reference.txt (see
+   docs/sh4/ABI.md).  Compile with the Microsoft SH-4 compiler like t.c
+   (clsh /Qsh4 /O2 /c open-questions.c), disassemble, and add the listing
+   to the reference.  */
+
+typedef struct { char a, b, c; } S3;
+typedef struct { int a; short b; } S6;	/* 8 bytes with padding */
+typedef struct { short a, b, c; } S6p;	/* 6 bytes */
+typedef struct { char a[5]; } S5;
+
+extern int ext_r7 (int a, int b, int c, __int64 d, int e);
+extern int extv (const char *f, ...);
+extern S3 extS3 (int x);
+extern S5 extS5 (int x);
+extern S6p extS6p (int x);
+extern char extc (char c, short s);
+extern int extmul (int a, int b);
+extern double extdbl (double d, int i);
+
+/* 64-bit argument starting in r7: split between r7 and @(16,r15)?  */
+int call_r7 (int x) { return ext_r7 (1, 2, 3, (__int64) x << 33, 4); }
+int callv_r7 (int x) { return extv ("a", 1, 2, (__int64) x << 33, 4); }
+int take_r7 (int a, int b, int c, __int64 d, int e) { return (int) (d >> 32) + e; }
+
+/* Small struct results of odd sizes.  */
+S3 retS3 (int x) { S3 s; s.a = (char) x; s.b = 1; s.c = 2; return s; }
+S5 retS5 (int x) { S5 s; s.a[0] = (char) x; s.a[4] = 1; return s; }
+S6p retS6p (int x) { S6p s; s.a = (short) x; s.b = 1; s.c = 2; return s; }
+int useS3 (int x) { return extS3 (x).c; }
+int useS6p (int x) { return extS6p (x).c; }
+
+/* Narrow arguments and results: who extends?  */
+int callc (int x) { return extc ((char) x, (short) x) + 1; }
+char retc (int x) { return (char) (x + 1); }
+int takec (char c, short s) { return c + s; }
+
+/* MACH/MACL across a call: does the callee preserve them?  */
+int keepmac (int a, int b) { int p = a * b; return extmul (a, b) + p * a; }
+
+/* double without /Qsh4 (SH-3 style, if available) and with /Qsh4.  */
+double calldbl (int x) { return extdbl ((double) x, x) + 1.0; }
+
+/* Signed division and remainder helpers.  */
+int divs (int a, int b) { return a / b + a % b; }
+
+## open-questions.obj (/Qsh4 /O2)
+machine 0x1a6
+
+== _call_r7
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     #4,r3
+  0006 mov.l   0x20,r2
+  0008 shll    r4
+  000a mov.l   r3,@(20,r15)
+  000c mov.l   r4,@(16,r15)
+  000e mov     #0,r7
+  0010 mov     #3,r6
+  0012 mov     #2,r5
+  0014 jsr     @r2
+  0016 mov     #1,r4
+  0018 add     #24,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_ext_r7'}
+
+== _callv_r7
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     #4,r3
+  0006 mov.l   0x20,r2
+  0008 shll    r4
+  000a mov.l   r3,@(20,r15)
+  000c mov.l   r4,@(16,r15)
+  000e mov     #0,r7
+  0010 mov.l   0x24,r4
+  0012 mov     #2,r6
+  0014 jsr     @r2
+  0016 mov     #1,r5
+  0018 add     #24,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x00, 0x00
+relocs: {'0x20': '_extv', '0x24': '??_C@_01FNLH@a?$AA@'}
+
+== _take_r7
+  0000 mov.l   r7,@(12,r15)
+  0002 mov.l   @(16,r15),r0
+  0004 mov.l   @(20,r15),r3
+  0006 rts     
+  0008 add     r3,r0
+  000a nop     
+relocs: {}
+
+== _retS3
+  0000 mov     #2,r2
+  0002 mov     #1,r1
+  0004 shll8   r2
+  0006 or      r2,r1
+  0008 shll8   r1
+  000a extu.b  r4,r0
+  000c rts     
+  000e or      r1,r0
+relocs: {}
+
+== _retS5
+  0000 add     #-8,r15
+  0002 mov     #1,r0
+  0004 mov.b   r5,@r15
+  0006 mov.b   r0,@(4,r15)
+  0008 mov     r15,r1
+  000a mov.l   @r1+,r2
+  000c mov.b   r2,@r4
+  000e shlr8   r2
+  0010 mov     r2,r0
+  0012 shlr8   r2
+  0014 mov.b   r0,@(1,r4)
+  0016 mov     r2,r0
+  0018 shlr8   r2
+  001a mov.b   r0,@(2,r4)
+  001c mov     r2,r0
+  001e mov.b   r0,@(3,r4)
+  0020 mov.b   @r1,r0
+  0022 mov.b   r0,@(4,r4)
+  0024 mov     r4,r0
+  0026 rts     
+  0028 add     #8,r15
+  002a nop     
+relocs: {}
+
+== _retS6p
+  0000 add     #-8,r15
+  0002 mov     #1,r0
+  0004 mov.w   r5,@r15
+  0006 mov.w   r0,@(2,r15)
+  0008 mov     #2,r0
+  000a mov.w   r0,@(4,r15)
+  000c mov     r15,r3
+  000e mov.l   @r3+,r0
+  0010 mov.w   r0,@r4
+  0012 shlr16  r0
+  0014 mov.w   r0,@(2,r4)
+  0016 mov.w   @r3,r0
+  0018 mov.w   r0,@(4,r4)
+  001a mov     r4,r0
+  001c rts     
+  001e add     #8,r15
+relocs: {}
+
+== _useS3
+  0000 sts.l   pr,@-r15
+  0002 add     #-20,r15
+  0004 mov.l   0x20,r3
+  0006 jsr     @r3
+  0008 nop     
+  000a mov     r0,r2
+  000c mov     #16,r0
+  000e mov.b   r2,@(r0,r15)
+  0010 shlr8   r2
+  0012 mov     #17,r0
+  0014 mov.b   r2,@(r0,r15)
+  0016 shlr8   r2
+  0018 add     #20,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e exts.b  r2,r0
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_extS3'}
+
+== _useS6p
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     r4,r5
+  0006 mov     #16,r4
+  0008 mov.l   0x1c,r3
+  000a jsr     @r3
+  000c add     r15,r4
+  000e mov     r0,r2
+  0010 mov.w   @(4,r2),r0
+  0012 add     #24,r15
+  0014 lds.l   @r15+,pr
+  0016 rts     
+  0018 nop     
+  001a nop     
+  001c .byte   0x00, 0x00
+  001e .byte   0x00, 0x00
+relocs: {'0x1c': '_extS6p'}
+
+== _callc
+  0000 sts.l   pr,@-r15
+  0002 add     #-16,r15
+  0004 exts.w  r4,r5
+  0006 mov.l   0x18,r3
+  0008 jsr     @r3
+  000a exts.b  r4,r4
+  000c add     #16,r15
+  000e exts.b  r0,r2
+  0010 add     #1,r2
+  0012 lds.l   @r15+,pr
+  0014 rts     
+  0016 mov     r2,r0
+  0018 .byte   0x00, 0x00
+  001a .byte   0x00, 0x00
+relocs: {'0x18': '_extc'}
+
+== _retc
+  0000 add     #1,r4
+  0002 rts     
+  0004 exts.b  r4,r0
+  0006 nop     
+relocs: {}
+
+== _takec
+  0000 exts.b  r4,r0
+  0002 exts.w  r5,r3
+  0004 rts     
+  0006 add     r3,r0
+relocs: {}
+
+== _keepmac
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 sts.l   pr,@-r15
+  0006 add     #-16,r15
+  0008 mov     r4,r8
+  000a mov     r5,r9
+  000c mov.l   0x28,r3
+  000e jsr     @r3
+  0010 nop     
+  0012 mul.l   r8,r8
+  0014 add     #16,r15
+  0016 sts     macl,r2
+  0018 lds.l   @r15+,pr
+  001a mul.l   r9,r2
+  001c mov.l   @r15+,r9
+  001e mov.l   @r15+,r8
+  0020 sts     macl,r2
+  0022 rts     
+  0024 add     r2,r0
+  0026 nop     
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+relocs: {'0x28': '_extmul'}
+
+== _calldbl
+  0000 mov.l   r8,@-r15
+  0002 sts.l   pr,@-r15
+  0004 add     #-16,r15
+  0006 mov     #8,r8
+  0008 .byte   0x6a, 0x03
+  000a shll16  r8
+  000c .byte   0x5a, 0x44
+  000e or      r8,r3
+  0010 mov.l   0x4c,r0
+  0012 .byte   0x6a, 0x43
+  0014 not     r8,r2
+  0016 .byte   0x2d, 0xf0
+  0018 .byte   0x6a, 0x01
+  001a and     r2,r1
+  001c .byte   0x1c, 0xf5
+  001e .byte   0x0c, 0xf4
+  0020 .byte   0x6a, 0x41
+  0022 jsr     @r0
+  0024 mov     r4,r6
+  0026 mova    0x50,r0
+  0028 .byte   0x8d, 0xf7
+  002a .byte   0x6a, 0x03
+  002c not     r8,r2
+  002e .byte   0x08, 0xf6
+  0030 or      r8,r3
+  0032 .byte   0x1c, 0xf5
+  0034 .byte   0x0c, 0xf4
+  0036 .byte   0x6a, 0x43
+  0038 .byte   0x60, 0xf4
+  003a .byte   0x6a, 0x01
+  003c .byte   0x5c, 0xf1
+  003e and     r2,r1
+  0040 .byte   0x4c, 0xf0
+  0042 .byte   0x6a, 0x41
+  0044 add     #16,r15
+  0046 lds.l   @r15+,pr
+  0048 rts     
+  004a mov.l   @r15+,r8
+  004c .byte   0x00, 0x00
+  004e .byte   0x00, 0x00
+  0050 .byte   0x00, 0x00
+  0052 .byte   0xf0, 0x3f
+relocs: {'0x4c': '_extdbl'}
+
+== _divs
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 mov.l   r10,@-r15
+  0006 sts.l   pr,@-r15
+  0008 add     #-16,r15
+  000a mov     r4,r9
+  000c mov     r5,r10
+  000e mov.l   0x2c,r3
+  0010 jsr     @r3
+  0012 nop     
+  0014 mov.l   0x30,r2
+  0016 mov     r9,r4
+  0018 mov     r0,r8
+  001a jsr     @r2
+  001c mov     r10,r5
+  001e add     #16,r15
+  0020 lds.l   @r15+,pr
+  0022 add     r8,r0
+  0024 mov.l   @r15+,r10
+  0026 mov.l   @r15+,r9
+  0028 rts     
+  002a mov.l   @r15+,r8
+  002c .byte   0x00, 0x00
+  002e .byte   0x00, 0x00
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x00, 0x00
+relocs: {'0x2c': '__modls', '0x30': '__divls'}
+
+## open-questions.obj (/O2, no /Qsh4)
+machine 0x1a2
+
+== _call_r7
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     #4,r3
+  0006 shll    r4
+  0008 mov.l   r3,@(20,r15)
+  000a mov.l   r4,@(16,r15)
+  000c mov     #0,r7
+  000e mov     #3,r6
+  0010 mov     #2,r5
+  0012 mov.l   0x20,r2
+  0014 jsr     @r2
+  0016 mov     #1,r4
+  0018 add     #24,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_ext_r7'}
+
+== _callv_r7
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     #4,r3
+  0006 shll    r4
+  0008 mov.l   r3,@(20,r15)
+  000a mov.l   r4,@(16,r15)
+  000c mov     #0,r7
+  000e mov     #2,r6
+  0010 mov.l   0x20,r4
+  0012 mov.l   0x24,r2
+  0014 jsr     @r2
+  0016 mov     #1,r5
+  0018 add     #24,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x00, 0x00
+relocs: {'0x20': '??_C@_01FNLH@a?$AA@', '0x24': '_extv'}
+
+== _take_r7
+  0000 mov.l   r7,@(12,r15)
+  0002 mov.l   @(16,r15),r0
+  0004 mov.l   @(20,r15),r3
+  0006 rts     
+  0008 add     r3,r0
+  000a nop     
+relocs: {}
+
+== _retS3
+  0000 mov     #2,r2
+  0002 mov     #1,r1
+  0004 shll8   r2
+  0006 or      r2,r1
+  0008 shll8   r1
+  000a extu.b  r4,r0
+  000c rts     
+  000e or      r1,r0
+relocs: {}
+
+== _retS5
+  0000 add     #-8,r15
+  0002 mov     #1,r0
+  0004 mov.b   r5,@r15
+  0006 mov     r15,r1
+  0008 mov.b   r0,@(4,r15)
+  000a mov.l   @r1+,r2
+  000c mov.b   r2,@r4
+  000e shlr8   r2
+  0010 mov     r2,r0
+  0012 shlr8   r2
+  0014 mov.b   r0,@(1,r4)
+  0016 mov     r2,r0
+  0018 shlr8   r2
+  001a mov.b   r0,@(2,r4)
+  001c mov     r2,r0
+  001e mov.b   r0,@(3,r4)
+  0020 mov.b   @r1,r0
+  0022 mov.b   r0,@(4,r4)
+  0024 mov     r4,r0
+  0026 rts     
+  0028 add     #8,r15
+  002a nop     
+relocs: {}
+
+== _retS6p
+  0000 add     #-8,r15
+  0002 mov     #1,r0
+  0004 mov.w   r5,@r15
+  0006 mov.w   r0,@(2,r15)
+  0008 mov     #2,r0
+  000a mov     r15,r3
+  000c mov.w   r0,@(4,r15)
+  000e mov.l   @r3+,r0
+  0010 mov.w   r0,@r4
+  0012 shlr16  r0
+  0014 mov.w   r0,@(2,r4)
+  0016 mov.w   @r3,r0
+  0018 mov.w   r0,@(4,r4)
+  001a mov     r4,r0
+  001c rts     
+  001e add     #8,r15
+relocs: {}
+
+== _useS3
+  0000 sts.l   pr,@-r15
+  0002 add     #-20,r15
+  0004 mov.l   0x20,r3
+  0006 jsr     @r3
+  0008 nop     
+  000a mov     r0,r2
+  000c mov     #16,r0
+  000e mov.b   r2,@(r0,r15)
+  0010 shlr8   r2
+  0012 mov     #17,r0
+  0014 mov.b   r2,@(r0,r15)
+  0016 shlr8   r2
+  0018 add     #20,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e exts.b  r2,r0
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_extS3'}
+
+== _useS6p
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     r4,r5
+  0006 mov     #16,r4
+  0008 mov.l   0x1c,r3
+  000a jsr     @r3
+  000c add     r15,r4
+  000e mov     r0,r2
+  0010 mov.w   @(4,r2),r0
+  0012 add     #24,r15
+  0014 lds.l   @r15+,pr
+  0016 rts     
+  0018 nop     
+  001a nop     
+  001c .byte   0x00, 0x00
+  001e .byte   0x00, 0x00
+relocs: {'0x1c': '_extS6p'}
+
+== _callc
+  0000 sts.l   pr,@-r15
+  0002 add     #-16,r15
+  0004 exts.w  r4,r5
+  0006 mov.l   0x18,r3
+  0008 jsr     @r3
+  000a exts.b  r4,r4
+  000c exts.b  r0,r2
+  000e add     #1,r2
+  0010 add     #16,r15
+  0012 lds.l   @r15+,pr
+  0014 rts     
+  0016 mov     r2,r0
+  0018 .byte   0x00, 0x00
+  001a .byte   0x00, 0x00
+relocs: {'0x18': '_extc'}
+
+== _retc
+  0000 add     #1,r4
+  0002 rts     
+  0004 exts.b  r4,r0
+  0006 nop     
+relocs: {}
+
+== _takec
+  0000 exts.b  r4,r0
+  0002 exts.w  r5,r3
+  0004 rts     
+  0006 add     r3,r0
+relocs: {}
+
+== _keepmac
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 sts.l   pr,@-r15
+  0006 add     #-16,r15
+  0008 mov     r4,r8
+  000a mov     r5,r9
+  000c mov.l   0x28,r3
+  000e jsr     @r3
+  0010 nop     
+  0012 mul.l   r8,r8
+  0014 add     #16,r15
+  0016 sts     macl,r2
+  0018 mul.l   r9,r2
+  001a lds.l   @r15+,pr
+  001c mov.l   @r15+,r9
+  001e sts     macl,r2
+  0020 mov.l   @r15+,r8
+  0022 rts     
+  0024 add     r2,r0
+  0026 nop     
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+relocs: {'0x28': '_extmul'}
+
+== _calldbl
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 sts.l   pr,@-r15
+  0006 add     #-40,r15
+  0008 mov     r4,r8
+  000a mov     r5,r9
+  000c mov.l   0x5c,r3
+  000e mov     #16,r4
+  0010 mov.l   @r3,r2
+  0012 jsr     @r2
+  0014 add     r15,r4
+  0016 mov     #16,r4
+  0018 mov.l   @(16,r15),r5
+  001a mov.l   @(20,r15),r6
+  001c add     r15,r4
+  001e mov.l   0x60,r1
+  0020 jsr     @r1
+  0022 mov     r9,r7
+  0024 mov.l   @(16,r15),r3
+  0026 mov.l   @(20,r15),r2
+  0028 mov.l   r3,@(16,r15)
+  002a mov.l   r2,@(20,r15)
+  002c mov.l   0x64,r2
+  002e mov     r2,r1
+  0030 shll16  r1
+  0032 mov.l   0x68,r0
+  0034 mov     #16,r5
+  0036 mov     #24,r6
+  0038 mov     #32,r4
+  003a mov.l   r1,@(24,r15)
+  003c mov.l   @r0,r3
+  003e add     r15,r5
+  0040 add     r15,r6
+  0042 add     r15,r4
+  0044 jsr     @r3
+  0046 mov.l   r2,@(28,r15)
+  0048 mov.l   @(32,r15),r2
+  004a mov.l   @(36,r15),r1
+  004c mov.l   r2,@r8
+  004e mov.l   r1,@(4,r8)
+  0050 add     #40,r15
+  0052 lds.l   @r15+,pr
+  0054 mov.l   @r15+,r9
+  0056 mov     r8,r0
+  0058 rts     
+  005a mov.l   @r15+,r8
+  005c .byte   0x00, 0x00
+  005e .byte   0x00, 0x00
+  0060 .byte   0x00, 0x00
+  0062 .byte   0x00, 0x00
+  0064 .byte   0x00, 0x00
+  0066 .byte   0xf0, 0x3f
+  0068 .byte   0x00, 0x00
+  006a .byte   0x00, 0x00
+relocs: {'0x5c': '__imp___itod', '0x60': '_extdbl', '0x68': '__imp___addd'}
+
+== _divs
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 mov.l   r10,@-r15
+  0006 sts.l   pr,@-r15
+  0008 add     #-16,r15
+  000a mov     r4,r9
+  000c mov     r5,r10
+  000e mov.l   0x2c,r3
+  0010 jsr     @r3
+  0012 nop     
+  0014 mov     r9,r4
+  0016 mov     r10,r5
+  0018 mov.l   0x30,r2
+  001a jsr     @r2
+  001c mov     r0,r8
+  001e add     #16,r15
+  0020 lds.l   @r15+,pr
+  0022 mov.l   @r15+,r10
+  0024 mov.l   @r15+,r9
+  0026 add     r8,r0
+  0028 rts     
+  002a mov.l   @r15+,r8
+  002c .byte   0x00, 0x00
+  002e .byte   0x00, 0x00
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x00, 0x00
+relocs: {'0x2c': '__modls', '0x30': '__divls'}
