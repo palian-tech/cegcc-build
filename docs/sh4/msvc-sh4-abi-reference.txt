@@ -1,0 +1,351 @@
+# Reference: functions compiled by the Microsoft SH-4 compiler (clsh.exe 12.20.9518,
+# eVC4 SP4, run under Wine): /Qsh4 /O2 /c t.c. Disassembly of t.obj with capstone;
+# '.byte 0x..,0xf.' are FPU instructions, '0x6a,0x.3' / '0x6a,0x.1' are sts/lds fpscr.
+# This is the calling-convention ground truth for sh4-mingw32ce.
+
+## t.c
+typedef struct { int a; int b; } S8;
+typedef struct { int a; } S4;
+typedef struct { int a,b,c,d,e; } S20;
+extern int ext2(int a, int b);
+extern int ext5(int a, int b, int c, int d, int e);
+extern __int64 ext64(int a);
+extern S8 extS8(int a);
+extern double extd(double x, float y);
+extern int extv(const char *f, ...);
+
+int call2(int x) { return ext2(x, 7) + 1; }
+int call5(int x) { return ext5(1, 2, 3, 4, x) + 1; }
+__int64 ret64(int x) { return (__int64)x * 3 + 5; }
+int use64(int x) { return (int)(ext64(x) >> 33); }
+S8 retS8(int x) { S8 s; s.a = x; s.b = x + 1; return s; }
+S4 retS4(int x) { S4 s; s.a = x; return s; }
+S20 retS20(int x) { S20 s; s.a = x; s.b = 1; s.c = 2; s.d = 3; s.e = 4; return s; }
+int useS8(int x) { S8 s = extS8(x); return s.a + s.b; }
+int takeS8(S8 s, int y) { return s.a + s.b + y; }
+int take64(int a, __int64 b, int c) { return a + (int)b + c; }
+double fl(double x, float y) { return x * y + 1.0; }
+int callfl(int x) { return (int)extd((double)x, 2.5f); }
+int callv(int x) { return extv("a", x, 2, 3, 4, 5); }
+unsigned divu(unsigned a, unsigned b) { return a / b + a % b; }
+
+## t.obj
+machine 0x1a6
+
+== _call2
+  0000 sts.l   pr,@-r15
+  0002 add     #-16,r15
+  0004 mov.l   0x18,r3
+  0006 jsr     @r3
+  0008 mov     #7,r5
+  000a add     #16,r15
+  000c mov     r0,r2
+  000e add     #1,r2
+  0010 lds.l   @r15+,pr
+  0012 rts     
+  0014 mov     r2,r0
+  0016 nop     
+  0018 .byte   0x00, 0x00
+  001a .byte   0x00, 0x00
+relocs: {'0x18': '_ext2'}
+
+== _call5
+  0000 sts.l   pr,@-r15
+  0002 add     #-20,r15
+  0004 mov.l   r4,@(16,r15)
+  0006 mov     #4,r7
+  0008 mov.l   0x20,r3
+  000a mov     #3,r6
+  000c mov     #2,r5
+  000e jsr     @r3
+  0010 mov     #1,r4
+  0012 add     #20,r15
+  0014 mov     r0,r2
+  0016 add     #1,r2
+  0018 lds.l   @r15+,pr
+  001a rts     
+  001c mov     r2,r0
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_ext5'}
+
+== _ret64
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 sts.l   pr,@-r15
+  0006 add     #-40,r15
+  0008 mov     r4,r8
+  000a mov     r5,r3
+  000c mov.l   r5,@(16,r15)
+  000e shll    r3
+  0010 mov.l   0x48,r0
+  0012 mov     #3,r1
+  0014 mov     #16,r5
+  0016 mov.l   r1,@(24,r15)
+  0018 mov     #24,r6
+  001a mov     #32,r4
+  001c subc    r2,r2
+  001e mov     #0,r9
+  0020 mov.l   r2,@(20,r15)
+  0022 add     r15,r5
+  0024 add     r15,r6
+  0026 add     r15,r4
+  0028 jsr     @r0
+  002a mov.l   r9,@(28,r15)
+  002c mov.l   @(32,r15),r3
+  002e clrt    
+  0030 mov     #5,r1
+  0032 mov.l   @(36,r15),r2
+  0034 addc    r1,r3
+  0036 mov     r8,r0
+  0038 addc    r9,r2
+  003a mov.l   r3,@r8
+  003c mov.l   r2,@(4,r8)
+  003e add     #40,r15
+  0040 lds.l   @r15+,pr
+  0042 mov.l   @r15+,r9
+  0044 rts     
+  0046 mov.l   @r15+,r8
+  0048 .byte   0x00, 0x00
+  004a .byte   0x00, 0x00
+relocs: {'0x48': '__muli64'}
+
+== _use64
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     r4,r5
+  0006 mov     #16,r4
+  0008 mov.l   0x20,r3
+  000a jsr     @r3
+  000c add     r15,r4
+  000e mov.l   @(16,r15),r1
+  0010 mov.l   @(20,r15),r2
+  0012 mov.l   r1,@(16,r15)
+  0014 add     #24,r15
+  0016 shar    r2
+  0018 lds.l   @r15+,pr
+  001a rts     
+  001c mov     r2,r0
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_ext64'}
+
+== _retS8
+  0000 add     #-8,r15
+  0002 mov.l   r5,@r15
+  0004 add     #1,r5
+  0006 mov.l   r5,@(4,r15)
+  0008 mov     r15,r3
+  000a mov.l   @r3+,r1
+  000c mov.l   @r3,r0
+  000e mov.l   r1,@r4
+  0010 mov.l   r0,@(4,r4)
+  0012 mov     r4,r0
+  0014 rts     
+  0016 add     #8,r15
+relocs: {}
+
+== _retS4
+  0000 rts     
+  0002 mov     r4,r0
+relocs: {}
+
+== _retS20
+  0000 add     #-20,r15
+  0002 mov.l   r5,@r15
+  0004 mov     #1,r3
+  0006 mov.l   r3,@(4,r15)
+  0008 mov     #2,r2
+  000a mov.l   r2,@(8,r15)
+  000c mov     #3,r1
+  000e mov     #4,r3
+  0010 mov.l   r1,@(12,r15)
+  0012 mov.l   r3,@(16,r15)
+  0014 mov     r15,r2
+  0016 mov.l   @r2+,r0
+  0018 mov.l   @r2+,r3
+  001a mov.l   r0,@r4
+  001c mov.l   r3,@(4,r4)
+  001e mov.l   @r2+,r0
+  0020 mov.l   @r2+,r3
+  0022 mov.l   @r2,r2
+  0024 mov.l   r0,@(8,r4)
+  0026 mov     r4,r0
+  0028 mov.l   r3,@(12,r4)
+  002a mov.l   r2,@(16,r4)
+  002c rts     
+  002e add     #20,r15
+relocs: {}
+
+== _useS8
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     r4,r5
+  0006 mov     #16,r4
+  0008 mov.l   0x28,r3
+  000a jsr     @r3
+  000c add     r15,r4
+  000e mov     #16,r1
+  0010 mov     r0,r2
+  0012 mov.l   @r2+,r0
+  0014 add     r15,r1
+  0016 mov.l   @r2,r3
+  0018 mov.l   r0,@r1
+  001a mov.l   r3,@(4,r1)
+  001c mov.l   @(20,r15),r0
+  001e mov.l   @(16,r15),r1
+  0020 add     #24,r15
+  0022 lds.l   @r15+,pr
+  0024 rts     
+  0026 add     r1,r0
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+relocs: {'0x28': '_extS8'}
+
+== _takeS8
+  0000 mov     r5,r0
+  0002 add     r4,r0
+  0004 rts     
+  0006 add     r6,r0
+relocs: {}
+
+== _take64
+  0000 mov.l   r6,@(8,r15)
+  0002 mov     r5,r0
+  0004 add     r4,r0
+  0006 rts     
+  0008 add     r7,r0
+  000a nop     
+relocs: {}
+
+== _fl
+  0000 .byte   0x5c, 0xf7
+  0002 .byte   0x4c, 0xf2
+  0004 mov     #8,r2
+  0006 .byte   0x6a, 0x03
+  0008 shll16  r2
+  000a .byte   0x1d, 0xf6
+  000c or      r2,r3
+  000e .byte   0x6a, 0x43
+  0010 not     r2,r1
+  0012 mova    0x40,r0
+  0014 .byte   0xad, 0xf0
+  0016 .byte   0x1c, 0xf5
+  0018 .byte   0x0c, 0xf4
+  001a .byte   0x2c, 0xf6
+  001c .byte   0x62, 0xf4
+  001e .byte   0x6a, 0x03
+  0020 and     r1,r3
+  0022 .byte   0x6a, 0x43
+  0024 not     r2,r3
+  0026 .byte   0x08, 0xf6
+  0028 .byte   0x8d, 0xf7
+  002a .byte   0x6a, 0x01
+  002c or      r2,r1
+  002e .byte   0x6a, 0x41
+  0030 .byte   0x60, 0xf4
+  0032 .byte   0x6a, 0x02
+  0034 .byte   0x5c, 0xf1
+  0036 and     r3,r2
+  0038 .byte   0x4c, 0xf0
+  003a rts     
+  003c .byte   0x6a, 0x42
+  003e nop     
+  0040 .byte   0x00, 0x00
+  0042 cmp/eq  r15,r15
+relocs: {}
+
+== _callfl
+  0000 mov.l   r8,@-r15
+  0002 sts.l   pr,@-r15
+  0004 add     #-16,r15
+  0006 mov     #8,r8
+  0008 .byte   0x6a, 0x03
+  000a shll16  r8
+  000c .byte   0x5a, 0x44
+  000e mova    0x44,r0
+  0010 or      r8,r3
+  0012 .byte   0x08, 0xf6
+  0014 .byte   0x6a, 0x43
+  0016 not     r8,r2
+  0018 mov.l   0x48,r0
+  001a .byte   0x2d, 0xf0
+  001c .byte   0x6a, 0x01
+  001e and     r2,r1
+  0020 .byte   0x1c, 0xf5
+  0022 .byte   0x0c, 0xf4
+  0024 jsr     @r0
+  0026 .byte   0x6a, 0x41
+  0028 not     r8,r2
+  002a .byte   0x6a, 0x03
+  002c or      r8,r3
+  002e .byte   0x6a, 0x43
+  0030 .byte   0x3d, 0xf0
+  0032 .byte   0x6a, 0x01
+  0034 and     r2,r1
+  0036 .byte   0x6a, 0x41
+  0038 add     #16,r15
+  003a lds.l   @r15+,pr
+  003c mov.l   @r15+,r8
+  003e rts     
+  0040 .byte   0x5a, 0x00
+  0042 nop     
+  0044 .byte   0x00, 0x00
+  0046 shal    r0
+  0048 .byte   0x00, 0x00
+  004a .byte   0x00, 0x00
+relocs: {'0x48': '_extd'}
+
+== _callv
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov     r4,r5
+  0006 mov     #5,r3
+  0008 mov     #4,r2
+  000a mov.l   0x20,r4
+  000c mov.l   0x24,r1
+  000e mov     #3,r7
+  0010 mov.l   r3,@(20,r15)
+  0012 mov     #2,r6
+  0014 jsr     @r1
+  0016 mov.l   r2,@(16,r15)
+  0018 add     #24,r15
+  001a lds.l   @r15+,pr
+  001c rts     
+  001e nop     
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x00, 0x00
+relocs: {'0x20': '??_C@_01FNLH@a?$AA@', '0x24': '_extv'}
+
+== _divu
+  0000 mov.l   r8,@-r15
+  0002 mov.l   r9,@-r15
+  0004 mov.l   r10,@-r15
+  0006 sts.l   pr,@-r15
+  0008 add     #-16,r15
+  000a mov     r4,r9
+  000c mov     r5,r10
+  000e mov.l   0x2c,r3
+  0010 jsr     @r3
+  0012 nop     
+  0014 mov.l   0x30,r2
+  0016 mov     r9,r4
+  0018 mov     r0,r8
+  001a jsr     @r2
+  001c mov     r10,r5
+  001e add     #16,r15
+  0020 lds.l   @r15+,pr
+  0022 add     r8,r0
+  0024 mov.l   @r15+,r10
+  0026 mov.l   @r15+,r9
+  0028 rts     
+  002a mov.l   @r15+,r8
+  002c .byte   0x00, 0x00
+  002e .byte   0x00, 0x00
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x00, 0x00
+relocs: {'0x2c': '__modlu', '0x30': '__divlu'}
