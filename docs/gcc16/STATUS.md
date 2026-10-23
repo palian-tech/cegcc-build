@@ -22,7 +22,7 @@ Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
 | Tree | Branch | Commit | Content |
 |---|---|---|---|
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
-| `palian-tech/binutils-gdb` | `ce-2.43.1` | `a817d8b8ee` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix |
+| `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix (`a817d8b8ee`, used by `arm-gcc16`) + SH-4 weak/linkonce fix (used by `sh4-gcc16`) |
 | `palian-tech/mingwrt` | `ce-16` | `72d79b48e5` | salman `7c35691` + our `0e274ec` + `struct timespec` |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
@@ -106,6 +106,13 @@ build args pin the commits), `gcc16/Dockerfile`.
   `-fpcc-struct-return` must fail, and does (`retS4`, `retS3`).
   `tests/sh4/prog/run-hello.sh` passes (division helpers `_divls`,
   `_divlu`, `_modls`, `_modlu`).
+* `cetest` on SH-4 did not link: undefined weak symbols
+  (`__cxa_pure_virtual`, `_ITM_*` from libgcc/libstdc++) were reported
+  as errors by `coff-sh.c`, and `.linkonce` sections were not merged.
+  binutils `a9e4309579`: undefined weak resolves to its default (or 0),
+  and the SH-4 CE vector gets `SEC_LINK_ONCE | SEC_LINK_DUPLICATES`. A
+  two-TU COMDAT test links on both targets; `cetest` C++20 and C++23 now
+  build for SH-4 and import only `COREDLL.dll`.
 
 ## Gate 0 findings (short)
 
@@ -145,3 +152,4 @@ run, when we know whether threads matter on-device.
 | Gate | Spent |
 |---|---|
 | 0 | ~3 (estimate; survey only, no builds) |
+| 1–3 | not metered from inside the session; check account usage (one long session, local GCC 16 builds for both targets) |

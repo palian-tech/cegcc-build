@@ -22,9 +22,11 @@ on:
     branches: [gcc16]
   workflow_dispatch:
 
+# No cancelling: runs take hours and nothing is published, so an older
+# run's artifacts stay useful.
 concurrency:
-  group: gcc16-${{ github.ref }}
-  cancel-in-progress: true
+  group: gcc16-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -58,7 +60,7 @@ jobs:
               GCC_REPO=https://github.com/palian-tech/gcc
               GCC_COMMIT=43596e5d45735e3b73f464b294792d0203ed8dc2
               BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
-              BINUTILS_COMMIT=a817d8b8ee3ed044735ac19bff0fe5292ce38124
+              BINUTILS_COMMIT=a9e430957907734c3fb5329b3f93dcc68439a5f7
               MINGW_REPO=https://github.com/palian-tech/mingwrt
               MINGW_COMMIT=72d79b48e5b3bdd759c34e0f1d4980846063f82c
               W32API_REPO=https://github.com/palian-tech/w32api
