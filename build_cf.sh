@@ -14,6 +14,10 @@
 # Several targets can share one prefix; build them one after the other.
 # Build directories are build-TARGET/* in the current directory.
 #
+# GCC_THREADS (environment) is the --enable-threads model of GCC, default
+# win32; "no" builds GCC with --disable-threads (GCC 13 and later need
+# Vista APIs for win32 threads, which Windows CE does not have).
+#
 # Written by Colin Finck for ENLYZE GmbH
 #
 
@@ -30,6 +34,7 @@ if [[ $# -lt 2 ]]; then
 fi
 
 J="-j `nproc`"
+GCC_THREADS="${GCC_THREADS:-win32}"
 OLDPATH="$PATH"
 PREFIXDIR="$1"
 TARGET="$2"
@@ -81,6 +86,11 @@ echo "# INITIAL GCC                    #"
 echo "##################################"
 
 ADDITIONAL_GCC_PARAMETERS=""
+if [[ "$GCC_THREADS" = "no" ]]; then
+       ADDITIONAL_GCC_PARAMETERS+="--disable-threads "
+else
+       ADDITIONAL_GCC_PARAMETERS+="--enable-threads=${GCC_THREADS} "
+fi
 if [[ "$TARGET" = "arm-mingw32ce" || "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+="--disable-__cxa_atexit"
 fi
@@ -94,7 +104,7 @@ cd gcc
 "${SRCDIR}"/gcc/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
     --enable-languages=c,c++ --disable-shared --disable-multilib --disable-nls \
     --disable-werror --disable-win32-registry --disable-libstdcxx-verbose \
-    --enable-threads=win32 ${ADDITIONAL_GCC_PARAMETERS}
+    ${ADDITIONAL_GCC_PARAMETERS}
 
 # Only build and install GCC so far to let us build low-level CE binaries.
 make $J all-gcc

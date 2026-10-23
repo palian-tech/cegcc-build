@@ -6,10 +6,10 @@ cost: [STATUS.md](STATUS.md).
 
 ## Targets
 
-| Target | Units | CPU / OS |
-|---|---|---|
-| `arm-mingw32ce` | Clarion QY8 | ARM, CE 7.0-based |
-| `sh4-mingw32ce` | Clarion QY7 | SH-4, CE 5.0 |
+| Target | CPU / OS |
+|---|---|
+| `arm-mingw32ce` | ARM, Windows CE 6 / 7 |
+| `sh4-mingw32ce` | SH-4, Windows CE 5.0 |
 
 Compiler: GCC 16.2.0 (`releases/gcc-16.2.0`, tag object `1831ac03`).
 Languages: C, C++ (`-std=c++20`, `-std=c++23` where it compiles).
@@ -125,28 +125,65 @@ and the `config.gcc` stanza to be the bulk. The ABI harness
 
 ## Test program
 
-`tests/gcc16/cetest.cpp` (written in Gate 1): one line per check,
-`PASS` / `FAIL <reason>` / `SKIP <reason>`, through `OutputDebugStringW`
-and into `cetest.txt` next to the EXE; final line `DONE n/m`. Checks as
-listed in the brief (static ctors/dtors, `new`/`delete`, containers,
-vocabulary types, lambdas/`std::function`, exceptions incl. DLL,
-`thread_local` + `CreateThread`, `std::thread`/`std::mutex` or `SKIP`,
-`snprintf`/`wcs*`, 64-bit division). Built `-std=c++20` and, separately,
-`-std=c++23`.
+`tests/gcc16/cetest.cpp` (written in Gate 1), built by
+`tests/gcc16/build.sh TARGET OUTDIR` as `-std=c++20` and, separately,
+`-std=c++23` (a C++23 build that does not compile is reported, not
+fatal), linked `-static`, imports `COREDLL.dll` only. One line per check
+through `OutputDebugStringW` and into `cetest.txt` next to the EXE:
+`PASS`, `FAIL <reason>`, `XFAIL <reason>` (known limitation of the
+build), `XPASS` (a known limitation that passed), `SKIP <reason>`; last
+line `DONE pass/run xfail=n skip=n`. Exit code = FAIL + XPASS count.
+
+Checks: static ctors (order), function-local statics, static dtors and
+`atexit` order (the EXE runs itself with `--child-dtor` and reads the
+file the child writes at exit), `new`/`delete` incl. arrays, nothrow,
+over-aligned, smart pointers; containers; vocabulary types
+(`optional`, `variant`/`visit`, `any`, `string_view`, `span`;
+`expected`, `to_underlying`, `string::contains` in the C++23 build);
+lambdas/`std::function`; exceptions (one function, unwinding through
+6 frames with destructors, class hierarchy, rethrow, `exception_ptr`,
+throw from a member constructor, library exceptions); `thread_local`
+in the main thread and with `CreateThread`; `std::thread`/`std::mutex`;
+`snprintf` (C99 truncation, `%lld`), `wcs*`/`_snwprintf`/`swprintf`;
+64-bit and 32-bit division, shifts, int64↔double.
+
+Decided by the owner (Gate 0 review):
+
+* Exception across a DLL: `SKIP` (runtime linked statically, no shared
+  libgcc/libstdc++).
+* `thread_local` with `CreateThread`: `XFAIL` while GCC is built
+  `--disable-threads`; `std::thread`/`std::mutex`: `SKIP` then. Both
+  become plain checks when `_GLIBCXX_HAS_GTHREADS` is defined.
+* For 2b, restoring GCC 12's pre-Vista `gthr-win32` (CRITICAL_SECTION,
+  TLS slots) may be cheaper than a new thread layer; cost it first.
+
+## Build layout
+
+`gcc16/Dockerfile` builds one target from source trees given as
+repository + commit build arguments (defaults: Gate 1 trees) with this
+repository's `build_cf.sh` (`GCC_THREADS=no` → `--disable-threads`), then
+the test program. Workflow `.github/workflows/gcc16.yml` runs it per
+target and uploads `cetest-<target>` (EXEs + `SHA256SUMS`). The 9.3
+`Dockerfile` and `image.yml` are unchanged except that `image.yml` no
+longer runs for pull requests into `gcc16`.
 
 ## Gates
 
 0. Survey, this document, estimate — **stop**.
-1. Salman's ARM 14.2 in Docker (our layout) + test program + LeafSDTools
-   `TARGET=arm` as Actions artifacts — **stop**, architect runs on
-   `clarion-qy8`. Fail → work ends.
+1. Salman's ARM 14.2 in Docker (our layout) + test program as Actions
+   artifacts — **stop**, the owner runs the test program on an ARM CE 6/7
+   device. Fail → work ends.
 2. ARM on 16.2 (`ce-16.2.0` etc.) — same artifacts — **stop**.
 3. SH-4 on 16.2, ABI harness + `open-questions.c` with mutation control,
-   artifacts for `clarion-qy7` — **stop**.
+   artifacts for an SH-4 CE 5.0 device — **stop**.
 4. Image `v16.2.0-ce.1` on ghcr and Docker Hub next to 9.3 tags; README;
    CI.
 
 ## Rules
+
+Gates build only this repository's own test programs. Application builds
+are done outside the repository; no application, product or device names
+in this repository.
 
 New branches only (`gcc16` here, `ce-16.2.0` / `ce-16` in forks). The
 `sh4-mingw32ce` and 9.3 branches and existing tags are not touched.

@@ -1,0 +1,65 @@
+# CeGCC on newer GCC (docs/gcc16): builds the toolchain of gcc16/Dockerfile
+# and the test program tests/gcc16/cetest.cpp, and uploads the test
+# program EXEs as the workflow artifact cetest-<target> (with SHA256SUMS).
+# Nothing is published to a registry.
+name: gcc16
+
+on:
+  push:
+    branches: [gcc16, 'claude/**']
+    paths:
+      - 'gcc16/**'
+      - 'tests/gcc16/**'
+      - 'build_cf.sh'
+      - '.github/workflows/gcc16.yml'
+  pull_request:
+    branches: [gcc16]
+  workflow_dispatch:
+
+concurrency:
+  group: gcc16-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  toolchain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [arm-mingw32ce]
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Cached per stage and target, so a test program change does not
+      # rebuild the toolchain.
+      - name: Build the toolchain and the test program
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: gcc16/Dockerfile
+          target: programs
+          build-args: TARGET=${{ matrix.target }}
+          outputs: type=local,dest=out
+          cache-from: type=gha,scope=gcc16-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=gcc16-${{ matrix.target }}
+
+      - name: Test programs
+        run: ls -l out && cat out/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cetest-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error

@@ -5,7 +5,7 @@ Specification: [SPEC.md](SPEC.md).
 | Gate | State |
 |---|---|
 | 0 — survey, plan, estimate | done (2026-10-23), waiting for the owner |
-| 1 — ARM on GCC 14.2 (salman), probe on `clarion-qy8` | not started |
+| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | not started |
 | 2 — ARM on GCC 16.2 | not started |
 | 3 — SH-4 on GCC 16.2 | not started |
 | 4 — release `v16.2.0-ce.1` | not started |
@@ -31,7 +31,7 @@ Specification: [SPEC.md](SPEC.md).
 
 | Gate | Work | Estimate | Main risk |
 |---|---|---|---|
-| 1 | Dockerfile stage for salman's trees, test program, LeafSDTools ARM build, Actions workflow with artifacts (builds run on Actions, not in the session) | 8–12 | LeafSDTools needs patches for GCC 14 (stricter C, `-Werror`) |
+| 1 | Dockerfile stage for salman's trees, test program, Actions workflow with artifacts (builds run on Actions, not in the session) | 8–12 | test program needs CE workarounds in salman's runtime |
 | 2 | Forward-port 20 commits + 14 binutils commits, iterate on build errors (ARM backend, libstdc++ C++23 bits) | 12–20 | `arm.cc`/`pe.cc` hook drift; each rebuild cycle ~20 min of CI |
 | 2b (optional) | CE `gthr` (CRITICAL_SECTION + TLS) to get `std::thread`/`std::mutex`/per-thread `thread_local` | 6–10 | gthreads API surface (`__gthread_cond_*` for `condition_variable`) |
 | 3 | Port SH-4 GCC (4 commits) + binutils (3 commits) to 16.2, ABI harness + mutation control, artifacts | 12–20 | `sh.cc` drift; binutils SH PE on newer bfd |

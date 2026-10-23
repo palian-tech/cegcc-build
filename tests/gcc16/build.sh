@@ -1,0 +1,58 @@
+#!/bin/bash
+# Builds the gcc16 test program cetest.cpp for one target, once as C++20
+# and once as C++23, and checks the PE headers and imports.
+#
+#   tests/gcc16/build.sh TARGET [OUTDIR]
+#
+# TARGET is arm-mingw32ce or sh4-mingw32ce; TARGET-g++ must be on PATH.
+# Writes OUTDIR/cetest-TARGET-c++20.exe and OUTDIR/cetest-TARGET-c++23.exe
+# (default OUTDIR: out/ in the current directory). A C++23 build that does
+# not compile is reported and skipped; the C++20 build must succeed.
+set -eu
+
+T=$1
+OUT=${2:-out}
+HERE=$(cd "$(dirname "$0")" && pwd)
+mkdir -p "$OUT"
+fail() { echo "FAIL: $*"; exit 1; }
+
+case $T in
+sh4-mingw32ce) MACHINE=0x01a6 FMT=pei-sh4-wince-little ;;
+arm-mingw32ce) MACHINE=0x01c0 FMT=pei-arm-wince-little ;;
+*) fail "unknown target $T" ;;
+esac
+
+CXXFLAGS="-O2 -Wall -D_WIN32_WCE=0x500"
+# The runtime is linked statically: the EXE imports COREDLL.dll only.
+LDFLAGS="-static -Wl,--image-base,0x10000 -Wl,--subsystem,wince:5.00 -s
+  -Wl,--no-insert-timestamp"
+
+check() {
+  local exe=$1 p
+  p=$("$T-objdump" -p "$exe")
+  grep -q "file format $FMT" <<<"$p" || fail "$exe: format"
+  local pe m
+  pe=$(od -An -tu4 -j 60 -N4 "$exe" | tr -d ' ')
+  m=$(od -An -tx2 -j $((pe + 4)) -N2 "$exe" | tr -d ' ')
+  [[ 0x$m = $MACHINE ]] || fail "$exe: machine 0x$m"
+  grep -q '^Subsystem[[:space:]]*00000009' <<<"$p" || fail "$exe: subsystem"
+  local got
+  got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort | tr '\n' ' ')
+  [[ $got = "COREDLL.dll " ]] || fail "$exe: imports '$got', want 'COREDLL.dll '"
+  echo "ok: $exe ($got, $(stat -c %s "$exe") bytes)"
+}
+
+"$T-g++" --version | head -n 1
+for std in c++20 c++23; do
+  exe=$OUT/cetest-$T-$std.exe
+  if "$T-g++" -std=$std $CXXFLAGS "$HERE/cetest.cpp" -o "$exe" $LDFLAGS \
+       2> "$OUT/cetest-$T-$std.log"; then
+    check "$exe"
+  else
+    cat "$OUT/cetest-$T-$std.log"
+    [[ $std = c++23 ]] || fail "cetest $std does not compile for $T"
+    echo "SKIP: cetest $std does not compile for $T (log kept)"
+  fi
+  [[ -s $OUT/cetest-$T-$std.log ]] || rm -f "$OUT/cetest-$T-$std.log"
+done
+echo "PASS: cetest for $T"
