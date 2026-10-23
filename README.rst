@@ -34,6 +34,8 @@ targets in ``/opt/cegcc`` (on ``PATH``):
 * ``ghcr.io/palian-tech/cegcc:edge`` -- every push to ``sh4-mingw32ce``
 * ``ghcr.io/palian-tech/cegcc:v9.3.0-ce.N`` and ``:latest`` -- release tags
 
+The same tags are published on Docker Hub as ``paliantech/cegcc``.
+
 Pull it and compile for each target::
 
  docker pull ghcr.io/palian-tech/cegcc:edge

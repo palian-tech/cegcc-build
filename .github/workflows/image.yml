@@ -3,6 +3,7 @@
 # tests/sh4/prog for both targets and publishes:
 #   push to sh4-mingw32ce   ghcr.io/palian-tech/cegcc:edge
 #   tag v*                  ghcr.io/palian-tech/cegcc:<tag> and :latest
+# Every tag is also pushed to docker.io/paliantech/cegcc.
 # The test programs are uploaded as the workflow artifact
 # cegcc-test-programs (with SHA256SUMS).
 name: image
@@ -26,6 +27,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/palian-tech/cegcc
+  DOCKERHUB_IMAGE: docker.io/paliantech/cegcc
 
 jobs:
   image:
@@ -67,7 +69,9 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: |
+            ${{ env.IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
           flavor: latest=false
           tags: |
             type=raw,value=edge,enable=${{ github.ref == 'refs/heads/sh4-mingw32ce' }}
@@ -80,6 +84,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and publish the image
         uses: docker/build-push-action@v6
