@@ -6,8 +6,8 @@ Specification: [SPEC.md](SPEC.md).
 |---|---|
 | 0 — survey, plan, estimate | done, accepted by the owner (2026-10-23) |
 | 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)); device run pending (owner) |
-| 2 — ARM on GCC 16.2 | toolchain + cetest build in the session; Actions job `arm-gcc16`; device run pending |
-| 3 — SH-4 on GCC 16.2 | toolchain builds; ABI gate passes under qemu-sh4; Actions job `sh4-gcc16`; device run pending |
+| 2 — ARM on GCC 16.2 | built; artifact `cetest-arm-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40039062631)); device run pending (owner) |
+| 3 — SH-4 on GCC 16.2 | built; ABI gate passes under qemu-sh4 in CI; artifact `cetest-sh4-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40039062631)); device run pending (owner) |
 | 4 — release `v16.2.0-ce.1` | not started (owner: stop before it) |
 
 Owner pre-approval (2026-10-23 night): continue from Gate 1 into Gate 2
