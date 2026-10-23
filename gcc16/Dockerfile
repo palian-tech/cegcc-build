@@ -8,8 +8,8 @@
 #   docker build -f gcc16/Dockerfile --target programs \
 #       --output type=local,dest=out .
 #
-# Stages: sources -> binutils -> gcc -> image; test builds the test program,
-# programs holds only the EXEs.
+# Stages: binutils -> gcc -> image; test runs the sh4 ABI gate (sh4 only)
+# and builds the test program, programs holds only the EXEs.
 
 ARG BASE_IMAGE=ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
 
@@ -67,9 +67,19 @@ COPY --from=gcc ${PREFIX} ${PREFIX}
 ENV PATH=${PREFIX}/bin:$PATH
 
 FROM image AS test
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 qemu-user \
+    && rm -rf /var/lib/apt/lists/*
 ARG TARGET=arm-mingw32ce
 WORKDIR /src
-COPY tests/gcc16 tests/gcc16
+COPY docs docs
+COPY tests tests
+# sh4: binutils test, ABI test against the Microsoft compiler's code under
+# qemu-sh4 and its mutation control, the qemu hello test (Gate 3).
+RUN if [ "${TARGET}" = sh4-mingw32ce ]; then \
+        tests/gcc16/sh4-abi-gate.sh /tmp/abi \
+        && tests/sh4/prog/run-hello.sh /tmp/hello; fi
 RUN tests/gcc16/build.sh ${TARGET} /out \
     && cd /out && sha256sum *.exe | tee SHA256SUMS
 

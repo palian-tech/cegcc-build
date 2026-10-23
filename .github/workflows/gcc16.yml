@@ -6,6 +6,8 @@
 # Jobs:
 #   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees (Dockerfile defaults)
 #   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned
+#   sh4-gcc16        the same trees for SH-4; the test stage also runs the
+#                    ABI gate (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
 name: gcc16
 
 on:
@@ -43,11 +45,22 @@ jobs:
             target: arm-mingw32ce
             trees: |
               GCC_REPO=https://github.com/palian-tech/gcc
-              GCC_COMMIT=ebb4a40b8f473a040bfcfc4f0eef4a2a37a2b69e
+              GCC_COMMIT=43596e5d45735e3b73f464b294792d0203ed8dc2
               BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
               BINUTILS_COMMIT=a817d8b8ee3ed044735ac19bff0fe5292ce38124
               MINGW_REPO=https://github.com/palian-tech/mingwrt
-              MINGW_COMMIT=7fe29eb1e54e2b517869cf499e7fae923a5efcdd
+              MINGW_COMMIT=72d79b48e5b3bdd759c34e0f1d4980846063f82c
+              W32API_REPO=https://github.com/palian-tech/w32api
+              W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
+          - name: sh4-gcc16
+            target: sh4-mingw32ce
+            trees: |
+              GCC_REPO=https://github.com/palian-tech/gcc
+              GCC_COMMIT=43596e5d45735e3b73f464b294792d0203ed8dc2
+              BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
+              BINUTILS_COMMIT=a817d8b8ee3ed044735ac19bff0fe5292ce38124
+              MINGW_REPO=https://github.com/palian-tech/mingwrt
+              MINGW_COMMIT=72d79b48e5b3bdd759c34e0f1d4980846063f82c
               W32API_REPO=https://github.com/palian-tech/w32api
               W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
     steps:
