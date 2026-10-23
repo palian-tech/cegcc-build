@@ -1,7 +1,11 @@
-# CeGCC on newer GCC (docs/gcc16): builds the toolchain of gcc16/Dockerfile
+# CeGCC on newer GCC (docs/gcc16): builds the toolchains of gcc16/Dockerfile
 # and the test program tests/gcc16/cetest.cpp, and uploads the test
-# program EXEs as the workflow artifact cetest-<target> (with SHA256SUMS).
-# Nothing is published to a registry.
+# program EXEs as the workflow artifact cetest-<job name> (with
+# SHA256SUMS). Nothing is published to a registry.
+#
+# Jobs:
+#   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees (Dockerfile defaults)
+#   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned
 name: gcc16
 
 on:
@@ -27,10 +31,25 @@ jobs:
   toolchain:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
-        target: [arm-mingw32ce]
+        include:
+          - name: gate1-arm-gcc14
+            target: arm-mingw32ce
+            trees: ""
+          - name: arm-gcc16
+            target: arm-mingw32ce
+            trees: |
+              GCC_REPO=https://github.com/palian-tech/gcc
+              GCC_COMMIT=ebb4a40b8f473a040bfcfc4f0eef4a2a37a2b69e
+              BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
+              BINUTILS_COMMIT=92728a5b3db54db6d31cc77d944c07acd8c81329
+              MINGW_REPO=https://github.com/palian-tech/mingwrt
+              MINGW_COMMIT=7fe29eb1e54e2b517869cf499e7fae923a5efcdd
+              W32API_REPO=https://github.com/palian-tech/w32api
+              W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
     steps:
       - name: Free disk space
         run: |
@@ -50,16 +69,18 @@ jobs:
           context: .
           file: gcc16/Dockerfile
           target: programs
-          build-args: TARGET=${{ matrix.target }}
+          build-args: |
+            TARGET=${{ matrix.target }}
+            ${{ matrix.trees }}
           outputs: type=local,dest=out
-          cache-from: type=gha,scope=gcc16-${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=gcc16-${{ matrix.target }}
+          cache-from: type=gha,scope=gcc16-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=gcc16-${{ matrix.name }}
 
       - name: Test programs
         run: ls -l out && cat out/SHA256SUMS
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cetest-${{ matrix.target }}
+          name: cetest-${{ matrix.name }}
           path: out/
           if-no-files-found: error

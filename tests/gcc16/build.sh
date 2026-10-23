@@ -5,8 +5,8 @@
 #   tests/gcc16/build.sh TARGET [OUTDIR]
 #
 # TARGET is arm-mingw32ce or sh4-mingw32ce; TARGET-g++ must be on PATH.
-# Writes OUTDIR/cetest-TARGET-c++20.exe and OUTDIR/cetest-TARGET-c++23.exe
-# (default OUTDIR: out/ in the current directory). A C++23 build that does
+# Writes OUTDIR/cetest-TARGET-gccN-c++20.exe and ...-c++23.exe, N being
+# the GCC major version (default OUTDIR: out/ in the current directory). A C++23 build that does
 # not compile is reported and skipped; the C++20 build must succeed.
 set -eu
 
@@ -36,23 +36,27 @@ check() {
   m=$(od -An -tx2 -j $((pe + 4)) -N2 "$exe" | tr -d ' ')
   [[ 0x$m = $MACHINE ]] || fail "$exe: machine 0x$m"
   grep -q '^Subsystem[[:space:]]*00000009' <<<"$p" || fail "$exe: subsystem"
+  # Unique names: the import libraries of mingwrt and w32api can each add
+  # a COREDLL.dll descriptor.
   local got
-  got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort | tr '\n' ' ')
+  got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort -u | tr '\n' ' ')
   [[ $got = "COREDLL.dll " ]] || fail "$exe: imports '$got', want 'COREDLL.dll '"
   echo "ok: $exe ($got, $(stat -c %s "$exe") bytes)"
 }
 
 "$T-g++" --version | head -n 1
+GCCV=gcc$("$T-g++" -dumpversion | cut -d. -f1)
 for std in c++20 c++23; do
-  exe=$OUT/cetest-$T-$std.exe
+  base=$OUT/cetest-$T-$GCCV-$std
+  exe=$base.exe
   if "$T-g++" -std=$std $CXXFLAGS "$HERE/cetest.cpp" -o "$exe" $LDFLAGS \
-       2> "$OUT/cetest-$T-$std.log"; then
+       2> "$base.log"; then
     check "$exe"
   else
-    cat "$OUT/cetest-$T-$std.log"
+    cat "$base.log"
     [[ $std = c++23 ]] || fail "cetest $std does not compile for $T"
     echo "SKIP: cetest $std does not compile for $T (log kept)"
   fi
-  [[ -s $OUT/cetest-$T-$std.log ]] || rm -f "$OUT/cetest-$T-$std.log"
+  [[ -s $base.log ]] || rm -f "$base.log"
 done
 echo "PASS: cetest for $T"

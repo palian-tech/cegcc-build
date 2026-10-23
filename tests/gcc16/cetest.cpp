@@ -658,21 +658,28 @@ Result std_thread_mutex()
 
 Result c_snprintf()
 {
+    // Volatile inputs, so the compiler cannot fold the calls.
+    volatile int vi = -17, vx = 255;
+    const char *volatile vs = "str";
+    volatile double vd = 3.14159;
     char buf[64];
-    int n = snprintf(buf, sizeof buf, "%d|%s|%x|%c|%5.2f", -17, "str", 255,
-                     'z', 3.14159);
+    int n = snprintf(buf, sizeof buf, "%d|%s|%x|%c|%5.2f", (int)vi,
+                     (const char *)vs, (int)vx, 'z', (double)vd);
     if (strcmp(buf, "-17|str|ff|z| 3.14") != 0)
         return std::string("got \"") + buf + "\"";
     EXPECT(n == 18);
 
     // C99: truncate, terminate, return the full length.
-    char small[5];
-    n = snprintf(small, sizeof small, "%s", "truncated");
+    const char *volatile long_str = "truncated";
+    char trunc[5];
+    n = snprintf(trunc, sizeof trunc, "%s", (const char *)long_str);
     EXPECT(n == 9);
-    EXPECT(strcmp(small, "trun") == 0);
+    EXPECT(strcmp(trunc, "trun") == 0);
 
-    snprintf(buf, sizeof buf, "%lld|%llu", -1234567890123LL,
-             18446744073709551615ULL);
+    volatile long long vll = -1234567890123LL;
+    volatile unsigned long long vull = 18446744073709551615ULL;
+    snprintf(buf, sizeof buf, "%lld|%llu", (long long)vll,
+             (unsigned long long)vull);
     if (strcmp(buf, "-1234567890123|18446744073709551615") != 0)
         return std::string("%lld/%llu gave \"") + buf + "\"";
     return {};
@@ -694,7 +701,7 @@ Result c_wide()
     wchar_t f[64];
     int n = _snwprintf(f, 64, L"%d-%s", 12, L"ab");
     EXPECT(n == 5 && wcscmp(f, L"12-ab") == 0);
-    n = swprintf(f, 64, L"%x", 0xbeef);
+    n = _snwprintf(f, 64, L"%x", 0xbeef);
     EXPECT(n == 4 && wcscmp(f, L"beef") == 0);
 
     char mb[16];

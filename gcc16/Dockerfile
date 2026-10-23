@@ -31,11 +31,12 @@ RUN printf '%s\n' '#!/bin/sh' 'set -e' \
 FROM build-base AS binutils
 ARG BINUTILS_REPO=https://github.com/salman-javed-nz/binutils-gdb
 ARG BINUTILS_COMMIT=f7f94cdd6b4b254d7b30e1832bfbf7f3c9262a47
+ARG BINUTILS_FLAGS="--disable-gdb --disable-gdbserver --disable-sim"
 ARG TARGET=arm-mingw32ce
 ARG PREFIX=/opt/cegcc
 RUN fetch-commit binutils ${BINUTILS_REPO} ${BINUTILS_COMMIT}
 COPY build_cf.sh ./
-RUN ./build_cf.sh ${PREFIX} ${TARGET} binutils > /src/binutils.log 2>&1 \
+RUN BINUTILS_FLAGS="${BINUTILS_FLAGS}" ./build_cf.sh ${PREFIX} ${TARGET} binutils > /src/binutils.log 2>&1 \
         || { tail -n 60 /src/binutils.log; exit 1; }; \
     tail -n 3 /src/binutils.log; rm -rf build-* binutils
 

@@ -17,6 +17,8 @@
 # GCC_THREADS (environment) is the --enable-threads model of GCC, default
 # win32; "no" builds GCC with --disable-threads (GCC 13 and later need
 # Vista APIs for win32 threads, which Windows CE does not have).
+# BINUTILS_FLAGS (environment) adds options to the binutils configure,
+# e.g. "--disable-gdb --disable-sim".
 #
 # Written by Colin Finck for ENLYZE GmbH
 #
@@ -59,7 +61,7 @@ cd binutils
 "${SRCDIR}"/binutils/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
     --disable-multilib --disable-werror --enable-lto --enable-plugins \
     --with-zlib=yes --disable-nls --disable-unit-tests --disable-shared \
-    --without-python
+    --without-python ${BINUTILS_FLAGS:-}
 make $J
 make install
 cd ..
