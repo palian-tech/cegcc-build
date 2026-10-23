@@ -45,7 +45,7 @@ jobs:
               GCC_REPO=https://github.com/palian-tech/gcc
               GCC_COMMIT=ebb4a40b8f473a040bfcfc4f0eef4a2a37a2b69e
               BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
-              BINUTILS_COMMIT=92728a5b3db54db6d31cc77d944c07acd8c81329
+              BINUTILS_COMMIT=a817d8b8ee3ed044735ac19bff0fe5292ce38124
               MINGW_REPO=https://github.com/palian-tech/mingwrt
               MINGW_COMMIT=7fe29eb1e54e2b517869cf499e7fae923a5efcdd
               W32API_REPO=https://github.com/palian-tech/w32api
