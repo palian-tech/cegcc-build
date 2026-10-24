@@ -229,4 +229,29 @@ run, when we know whether threads matter on-device.
 | Gate | Spent |
 |---|---|
 | 0 | ~3 (estimate; survey only, no builds) |
-| 1–3 | not metered from inside the session; check account usage (one long session, local GCC 16 builds for both targets) |
+| 1–4 (with 3b, 3c) | not metered from inside the session; check account usage (one long session, local GCC 16 builds for both targets) |
+
+## Gate 5 cost estimate (2026-10-24, session credit, USD)
+
+What is known of `/Qsh4` today: `fl`, `callfl`, `calldbl` (a `double`
+in `dr4`/`dr6` taking two int slots, a `float` after a `double` in `fr6`,
+`double` result in `dr0`, `FPSCR.PR`/`SZ` = 0 at calls). Not known: a
+first `float` argument, a `double` after an `int`, more than four FP
+arguments (stack), varargs with `float`/`double`, `float` results, structs
+of `float`, callee-saved FPU registers. So the gate starts with a C file
+for the maintainer to compile with `/Qsh4 /O2` and a **stop**.
+
+| Step | Work | Estimate |
+|---|---|---|
+| a | Case file for MSVC (`tests/sh4/abi/fpu-cases.c`), **stop** for listings | 2–3 |
+| b | Decode the listings, convention in ABI.md, `msvc2gas.py` for the FPU instructions | 5–8 |
+| c | GCC: MS FPU calling convention for SH-4 as an option on top of `-m4-single` (`PR` = 0 at boundaries matches), argument/result registers, callee-saved FPU registers | 8–15 |
+| d | Runtime libraries for both modes (multilib `m4-nofpu` default + FPU), mingwrt thunks only in the `-m4-nofpu` libraries, `build_cf.sh`, Dockerfile | 4–8 |
+| e | ABI harness FPU cases + mutation control, cetest in both modes, CI | 3–5 |
+| f | Fixes after the device run | 2–6 |
+| **Total** | | **24–45** |
+
+Main risks: GCC's SH FPU mode switching (`fpscr` handling) around calls
+into `/Qsh4` code, and multilib wiring in `t-wince-pe`. Calendar: one
+round trip for the listings. Whether the remaining budget (ends
+2026-11-05) covers it can only be read from account usage.
