@@ -11,6 +11,7 @@ Branch `sh4-mingw32ce` of `palian-tech/cegcc-build`. Specification:
 | M3 — runtime (mingwrt, w32api), both targets in one prefix | done |
 | M4 — test programs (both targets) | done |
 | M5 — CI, published image | done |
+| M6 — coredll floating-point calls on SH-4 (`/Qsh4` convention), `v9.3.0-ce.3` | built; device run pending |
 
 ## Commits per fork
 
@@ -21,7 +22,7 @@ submodule pins in this repository are authoritative.
 |---|---|---|
 | `binutils` | `binutils-gdb` (`ce-2.34`) | `bef2f830` add the sh4-mingw32ce target (PE machine 0x01a6, `sh4_wince_pe` emulation, `.rva` in SH gas, dlltool `sh4-wince`); `010f8502` numeric local labels in SH PE gas; `190deabd` no section-end padding in SH PE gas (it broke the import directory of images importing from two DLLs) |
 | `gcc` | `gcc` (`ce-9.3.0-x86`) | `fd2b8155` add the sh4-mingw32ce target (`sh/pe.h`, `sh/sh-pe.c`, `sh/mingw32ce.h`, `TARGET_MSABI` in `sh.c`); `f313aead` settled open ABI questions (3-byte struct in `r0`, `__divls`/`__modls`, fp-bit without MS bit-fields); `5b17b05d` predefine `__declspec`, DLL entry `_DllMainCRTStartup`; `6b1d1531` section alignment up to 8192 bytes (`aligned(8)` and up were rejected) |
-| `mingw` | `mingwrt` (`master`) | `0e274ec` coredll SH division helpers, `_JBLEN` for SH, underscored DLL entry |
+| `mingw` | `mingwrt` (`master`) | `0e274ec` coredll SH division helpers, `_JBLEN` for SH, underscored DLL entry; branch `sh4-mingw32ce-fpu`: `91483ef` … `db06d03` thunks for coredll's floating-point functions (`coredll_fpu.S`, `.lst`, `.sh`) |
 | `w32api` | `w32api` (`wip`) | `9a0d7c1` coredll SH division helpers, `ceddk.def` and `<ceddk.h>` |
 
 ## Build
@@ -78,7 +79,8 @@ With the tools on `PATH`:
 | binutils: object/image machine 0x01a6, PE header, dlltool import library, two-DLL import directory, jump stub | `tests/sh4/binutils-test.sh` | sh4 binutils |
 | ABI against the Microsoft compiler's code, both call directions, under qemu | `tests/sh4/abi/run-abi-test.sh [OUTDIR]` | sh4 binutils + gcc, python3, `qemu-sh4` |
 | `hello.c` under qemu: real crt3 startup, WinMain, the four division helpers and the exit path, with `fakecoredll.c` standing in for coredll | `tests/sh4/prog/run-hello.sh [OUTDIR]` | as above |
-| M4 programs for one target: builds `hello` and `mapio`, checks machine, image base 0x10000, subsystem Windows CE 5.00 and the exact DLL imports | `tests/sh4/prog/build.sh TARGET [OUTDIR]` | `TARGET-gcc` (`sh4-mingw32ce` or `arm-mingw32ce`) |
+| FPU thunks of the installed `libcoredll.a` against the Microsoft compiler's `/Qsh4` code, under qemu | `tests/sh4/fpu/run-fpu-test.sh [OUTDIR]` | as above |
+| Test programs for one target: builds `hello`, `mapio` and `fpcheck`, checks machine, image base 0x10000, subsystem Windows CE 5.00, the exact DLL imports, and that every coredll import is in the CE 5.0 SDK list and a reference device's list (`tests/sh4/coredll`) | `tests/sh4/prog/build.sh TARGET [OUTDIR]` | `TARGET-gcc` (`sh4-mingw32ce` or `arm-mingw32ce`) |
 
 Each prints `PASS` on success. `run-abi-test.sh` also writes `gcc-t.dis`
 (GCC's code for the reference `t.c`) into OUTDIR. The Docker `test`
@@ -195,3 +197,26 @@ docker build --network host --target test .
   (`-m4-single`, `FPSCR.PR` handling, `float`/`double` in FPU registers per
   the `/Qsh4` reference functions `fl`, `callfl`, `calldbl`); usable debug
   info (`.secrel32` in SH gas); `dllimport` for data.
+
+## M6 — coredll floating-point calls (2026-10-24)
+
+coredll.dll on SH-4 CE 5.0 is `/Qsh4` code: `double` arguments in
+`dr4`/`dr6`, results in `dr0`. `-m4-nofpu` code passed them in integer
+registers, so coredll's `sqrt`, `pow`, `_ecvt`, ... read garbage and
+`snprintf("%f")` printed `0.00`. The convention and the fix are in
+[ABI.md](ABI.md#calls-into-qsh4-code-coredll-floating-point); the same fix
+was accepted on a device for the GCC 16.2 toolchain (`gcc16` branch,
+Gate 3b).
+
+* mingwrt branch `sh4-mingw32ce-fpu`: thunks replace the jump stubs of 51
+  coredll and 15 old-name floating-point functions in `libcoredll.a` and
+  `libceoldname.a`; `float` functions go through the `double` ones (the CE
+  5.0 coredll has no `sqrtf`).
+* `build_cf.sh`: applies them to the `libcoredll.a` that w32api installs
+  over mingw's.
+* Tests: `tests/sh4/fpu/run-fpu-test.sh` (image test stage);
+  `tests/sh4/prog/fpcheck.c` (message box PASS/FAIL: coredll `sqrt`,
+  `floor`, `pow`, `fmod`, `ldexp`, `frexp`, `modf`, `_ecvt` called
+  directly, `snprintf` `%f`/`%e`); `tests/sh4/prog/build.sh` checks coredll
+  imports against `tests/sh4/coredll`.
+* After the device run passes: tag `v9.3.0-ce.3`.
