@@ -1,4 +1,4 @@
-# CeGCC on newer GCC (docs/gcc16): builds the toolchains of gcc16/Dockerfile
+# CeGCC on newer GCC (docs/gcc16): builds the toolchains of the Dockerfile
 # and the test program tests/gcc16/cetest.cpp, and uploads the test
 # program EXEs as the workflow artifact cetest-<job name> (with
 # SHA256SUMS). Nothing is published to a registry.
@@ -7,7 +7,7 @@
 #   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees; only from
 #                    workflow_dispatch with gate1 checked
 #   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned in
-#                    gcc16/Dockerfile
+#                    Dockerfile
 #   sh4-gcc16        the same trees for SH-4; the test stage also runs the
 #                    ABI gate (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
 # The image with both targets is published by gcc16-release.yml.
@@ -17,7 +17,7 @@ on:
   push:
     branches: [releases/gcc-16, gcc16]
     paths:
-      - 'gcc16/**'
+      - 'Dockerfile'
       - 'tests/gcc16/**'
       - 'tests/sh4/**'
       - 'docs/sh4/**'
@@ -61,7 +61,7 @@ jobs:
         W32API_REPO=https://github.com/enlyze/w32api
         W32API_COMMIT=51de0ad1420f5228fbc340b1fdb057a6b8f710e0
 
-  # The CeGCC 16.2 trees (gcc16/Dockerfile defaults), one job per target.
+  # The CeGCC 16.2 trees (Dockerfile defaults), one job per target.
   toolchain:
     name: ${{ matrix.name }}
     strategy:

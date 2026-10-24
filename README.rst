@@ -81,14 +81,15 @@ the Microsoft compiler's ``/Qsh4`` (``docs/sh4/ABI.md``), in the next
 Building from source
 ====================
 
-GCC 16.2 (``releases/gcc-16``): ``gcc16/Dockerfile`` fetches the trees by commit
+GCC 16.2 (``releases/gcc-16``): the ``Dockerfile`` fetches the trees by commit
 (``palian-tech/gcc`` ``ce-16.2.0``, ``binutils-gdb`` ``ce-2.43.1``,
 ``mingwrt`` and ``w32api`` ``ce-16``) and builds both targets with
 ``build_cf.sh``::
 
- docker build --network host -f gcc16/Dockerfile -t cegcc:16 .
+ docker build --network host -t cegcc:16 .
 
-GCC 9.3 (``releases/gcc-9``): the trees are submodules::
+GCC 9.3 (``releases/gcc-9``, its own ``Dockerfile``): the trees are
+submodules::
 
  git clone -b releases/gcc-9 https://github.com/palian-tech/cegcc-build
  cd cegcc-build

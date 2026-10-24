@@ -5,9 +5,9 @@
 # Defaults: both targets (TARGETS), the CeGCC 16.2 trees (gcc ce-16.2.0,
 # binutils ce-2.43.1, mingwrt ce-16), --disable-threads. From the repository root:
 #
-#   docker build -f gcc16/Dockerfile --target programs \
+#   docker build --target programs \
 #       --output type=local,dest=out .        # tests, test program EXEs
-#   docker build -f gcc16/Dockerfile -t cegcc:16 .   # the image
+#   docker build -t cegcc:16 .   # the image
 #
 # Stages: binutils -> gcc -> image; test runs the sh4 tests (sh4 only)
 # and builds the test program, programs holds only the EXEs.

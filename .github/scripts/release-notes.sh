@@ -14,8 +14,12 @@ TAG=$1 SRC=$2 RUN=${3:-} PROGRAMS=${4:-} EXTRA=${5:-}
 IMAGE=ghcr.io/palian-tech/cegcc
 HUB=paliantech/cegcc
 
-pin() {  # pin ARG: the default of ARG in gcc16/Dockerfile
-  sed -n "s/^ARG $1=//p" "$SRC/gcc16/Dockerfile" | head -n 1
+# The 16.2 Dockerfile is at the root since the 9.3 line moved to its own
+# branch; tags up to v16.2.0-ce.1 have it in gcc16/.
+DOCKERFILE=$SRC/Dockerfile
+[ -f "$SRC/gcc16/Dockerfile" ] && DOCKERFILE=$SRC/gcc16/Dockerfile
+pin() {  # pin ARG: the default of ARG in the 16.2 Dockerfile
+  sed -n "s/^ARG $1=//p" "$DOCKERFILE" | head -n 1
 }
 sub() {  # sub PATH: the submodule commit at TAG
   git -C "$SRC" ls-tree HEAD "$1" | awk '{print $3}'
@@ -26,7 +30,7 @@ tree() {  # tree REPO COMMIT
 
 case $TAG in
 v16.*)
-  [ -n "$(pin GCC_COMMIT)" ] || { echo "release-notes.sh: no pins in $SRC/gcc16/Dockerfile" >&2; exit 1; }
+  [ -n "$(pin GCC_COMMIT)" ] || { echo "release-notes.sh: no pins in $DOCKERFILE" >&2; exit 1; }
   cat <<END
 CeGCC 16.2: GCC 16.2.0 and binutils 2.43.1 cross toolchains for Windows CE
 in one Docker image, both targets in \`/opt/cegcc\` (on \`PATH\`):

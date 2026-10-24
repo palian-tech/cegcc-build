@@ -1,5 +1,5 @@
 # CeGCC 16.2 image (docs/gcc16): both targets (arm-mingw32ce and
-# sh4-mingw32ce) in /opt/cegcc, from the trees pinned in gcc16/Dockerfile.
+# sh4-mingw32ce) in /opt/cegcc, from the trees pinned in the Dockerfile.
 # Runs the tests and builds the test programs for both targets (artifact
 # cegcc16-test-programs, with SHA256SUMS), then builds the image.
 #
@@ -56,7 +56,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: gcc16/Dockerfile
+          file: Dockerfile
           target: programs
           outputs: type=local,dest=out
           cache-from: type=gha,scope=gcc16-release
@@ -109,7 +109,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: gcc16/Dockerfile
+          file: Dockerfile
           push: ${{ env.PUBLISH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
