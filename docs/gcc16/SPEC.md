@@ -144,7 +144,7 @@ lambdas/`std::function`; exceptions (one function, unwinding through
 6 frames with destructors, class hierarchy, rethrow, `exception_ptr`,
 throw from a member constructor, library exceptions); `thread_local`
 in the main thread and with `CreateThread`; `std::thread`/`std::mutex`;
-`snprintf` (C99 truncation, `%lld`), `wcs*`/`_snwprintf`/`swprintf`;
+coredll `double` functions called directly (`sqrt`, `pow`, `_ecvt`, ...); `snprintf` (`%f`, C99 truncation, `%lld`), `wcs*`/`_snwprintf`/`swprintf`;
 64-bit and 32-bit division, shifts, int64↔double.
 
 Decided by the owner (Gate 0 review):

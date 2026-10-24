@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <any>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -685,6 +686,51 @@ Result c_snprintf()
     return {};
 }
 
+// coredll's floating-point functions, called through volatile pointers so
+// that the compiler neither folds nor expands them. On SH-4, coredll is
+// /Qsh4 code that takes and returns double in FPU registers; mingwrt's
+// thunks convert from -m4-nofpu (docs/sh4/ABI.md).
+#ifdef __STRICT_ANSI__
+extern "C" char *_ecvt(double, int, int *, int *); // stdlib.h: GNU modes only
+#endif
+
+Result coredll_double()
+{
+    double (*volatile p_sqrt)(double) = ::sqrt;
+    double (*volatile p_floor)(double) = ::floor;
+    double (*volatile p_pow)(double, double) = ::pow;
+    double (*volatile p_fmod)(double, double) = ::fmod;
+    double (*volatile p_atan2)(double, double) = ::atan2;
+    double (*volatile p_ldexp)(double, int) = ::ldexp;
+    double (*volatile p_frexp)(double, int *) = ::frexp;
+    double (*volatile p_modf)(double, double *) = ::modf;
+    double (*volatile p_strtod)(const char *, char **) = ::strtod;
+    char *(*volatile p_ecvt)(double, int, int *, int *) = ::_ecvt;
+    float (*volatile p_sqrtf)(float) = ::sqrtf;
+
+    EXPECT(p_sqrt(2.25) == 1.5);
+    EXPECT(p_floor(-2.5) == -3.0);
+    EXPECT(p_pow(2.0, 10.0) == 1024.0);
+    EXPECT(p_fmod(7.5, 2.0) == 1.5);
+    double q = p_atan2(1.0, 1.0);
+    EXPECT(q > 0.785398163397 && q < 0.785398163398);
+    EXPECT(p_ldexp(0.75, 4) == 12.0);
+    int e = 0;
+    EXPECT(p_frexp(12.0, &e) == 0.75 && e == 4);
+    double ip = 0;
+    EXPECT(p_modf(3.25, &ip) == 0.25 && ip == 3.0);
+    const char *s = "1.5e3x";
+    char *end = nullptr;
+    EXPECT(p_strtod(s, &end) == 1500.0 && end == s + 5);
+    int dec = 0, sign = 1;
+    const char *dig = p_ecvt(3.14159, 3, &dec, &sign);
+    if (strcmp(dig, "314") != 0 || dec != 1 || sign != 0)
+        return std::string("_ecvt gave \"") + dig + "\" dec=" +
+               std::to_string(dec) + " sign=" + std::to_string(sign);
+    EXPECT(p_sqrtf(2.25f) == 1.5f);
+    return {};
+}
+
 Result c_wide()
 {
     wchar_t w[64];
@@ -803,6 +849,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
               "threads disabled, emutls has one copy for all threads");
     skip("std::thread and std::mutex", "GCC built with --disable-threads");
 #endif
+    run("coredll double functions", coredll_double);
     run("snprintf", c_snprintf);
     run("wide strings", c_wide);
     run("64-bit and 32-bit division", int64_division);

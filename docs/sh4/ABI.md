@@ -71,9 +71,69 @@ libgcc's 64-bit division also ends up calling `__divlu`. `LIBGCC_SPEC` links
   through `__imp_` pointers (`__itod`, `__addd`), passing results and
   operands by address. GCC uses libgcc's fp-bit instead. These helpers are
   internal to each compiler, so no interface depends on the choice.
-* **FPU code** (`/Qsh4`: `fl`, `callfl`, `calldbl`, with `FPSCR.PR` switched
-  around `double` operations, and `float`/`double` passed in FPU registers)
-  is out of scope. The default is `-m4-nofpu`.
+* **FPU code.** GCC generates `-m4-nofpu` code only. Calls into `/Qsh4`
+  code (coredll) go through thunks; see the next section.
+
+## Calls into /Qsh4 code (coredll floating point)
+
+coredll.dll of SH-4 Windows CE 5.0 is built with `/Qsh4`. Its
+floating-point functions (`sqrt`, `pow`, `_ecvt`, `strtod`, ...) therefore
+take and return `float`/`double` in FPU registers, while `-m4-nofpu` code
+passes them in integer registers. Without a conversion they read garbage:
+before Gate 3b, `snprintf("%5.2f", 3.14159)` printed ` 0.00` on the device,
+because mingwex's `snprintf` gets its digits from coredll's `_ecvt`/`_fcvt`.
+The 9.3 toolchain has the same problem.
+
+The `/Qsh4` convention, from `fl`, `callfl`
+([reference](msvc-sh4-abi-reference.txt)) and `calldbl`
+([open questions](msvc-sh4-abi-open-questions.txt), section 1), with the FPU
+words decoded by hand:
+
+| Rule | Evidence |
+|---|---|
+| A `double` argument goes in `dr4`, the next in `dr6`. The even register holds the high word (`fr4` = bits 63..32, `fr5` = bits 31..0) | `calldbl` builds `(double) x` in `dr0` and moves `fr0→fr4`, `fr1→fr5` before calling `extdbl`; `fl` and `calldbl` load the constant 1.0 as `fr6 = 0x3ff00000`, `fr7 = 0` |
+| The `double` still takes its two integer slots: an `int` after it goes in `r6` | `calldbl`: `extdbl (double, int)` gets the `int` in `r6` |
+| A `float` argument after a `double` goes in `fr6` | `fl (double x, float y)` reads `y` with `flds fr6,fpul`; `callfl` loads 2.5f into `fr6` |
+| A `double` result comes back in `dr0` (`fr0` high, `fr1` low) | `fl` and `calldbl` move their result to `fr0`/`fr1`; `callfl` and `calldbl` read the callee's result from `dr0` |
+| `FPSCR.PR` = 0 and `FPSCR.SZ` = 0 at calls and returns. Code sets `PR` around `double` arithmetic and clears it again, keeping the other bits | every `/Qsh4` function: `sts fpscr` / `or` / `lds` … `and` / `lds`; `fmov` moves doubles as two singles |
+
+Not shown by the listings, and not relied on: how a `float` result comes
+back (presumably `fr0`), where a first `float` argument goes (`fr4` or
+`fr5`), whether a `float` takes an integer slot, and where a `double`
+after an `int` goes (`_jn`, `_yn` assume `dr4`, since FPU registers are
+allocated apart from integer slots in every listing).
+
+mingwrt (`coredll_fpu.S`, `coredll_fpu.lst`, `coredll_fpu.sh`) replaces the
+jump stubs of these functions in `libcoredll.a` and `libceoldname.a` with
+thunks. A thunk saves `PR` and `FPSCR`, clears `FPSCR.PR`/`SZ`, moves each
+`double` from its integer registers (low word first; the high word of a
+second `double` may be on the stack) to `dr4`/`dr6`, drops the hidden
+result pointer of a `double` result and moves the other arguments down one
+register, copies stack arguments above a fresh 16-byte home area, calls
+coredll through `__imp_`, stores `dr0` through the hidden pointer and
+restores `FPSCR`.
+
+* Covered (51 in `libcoredll.a`, 15 old names in `libceoldname.a`): the
+  `double` math functions (`acos` … `tanh`, `atan2`, `fmod`, `pow`,
+  `frexp`, `ldexp`, `modf`, `_hypot`, `_copysign`, `_chgsign`, `_logb`,
+  `_nextafter`, `_scalb`, Bessel `_j0` … `_yn`), `atof`, `strtod`,
+  `wcstod`, `_ecvt`, `_fcvt`, `_gcvt`, `_finite`, `_isnan`, `_fpclass`,
+  `_isunordered`.
+* `ceilf`, `floorf`, `sqrtf`, `fmodf`, `_isnanf`, `_isunorderedf` are
+  computed by the `double` function (exact for these), so only the proven
+  `double` rules are used; `fabsf` clears the sign bit.
+* Not covered: `_cabs`/`cabs` (struct of two doubles by value), `_frnd`,
+  `_fsqrt` (CRT internals), and floating-point conversions in coredll's own
+  `printf`/`scanf` family when called directly (`_snprintf`, `swprintf`,
+  `_snwprintf`, `fwprintf`, ...): how `/Qsh4` code reads a variadic
+  `double` is not in the listings. mingwex's `printf` family and
+  `strtod` do not use them.
+
+`tests/sh4/fpu/run-fpu-test.sh` (part of the SH-4 gate) takes the thunks
+out of the installed `libcoredll.a`, points their import pointers at
+Microsoft's `calldbl` and `fl` and at a recording `/Qsh4`-style callee,
+and runs them under qemu-sh4 with `FPSCR.PR` set. Swapping the word order
+in the thunks makes it fail.
 
 ## Other target notes
 

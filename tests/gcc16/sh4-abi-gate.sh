@@ -4,12 +4,13 @@
 # open questions, tests/sh4/abi) under qemu-sh4, and a mutation control:
 # the same ABI test with GCC forced to return every struct in memory
 # (-fpcc-struct-return) must fail, which shows that the harness detects
-# a calling convention mismatch.
+# a calling convention mismatch. Then the FPU thunk test (tests/sh4/fpu):
+# mingwrt's coredll floating-point thunks against Microsoft /Qsh4 code.
 #
 #   tests/gcc16/sh4-abi-gate.sh [OUTDIR]
 #
 # Needs sh4-mingw32ce-gcc and binutils on PATH, python3 and qemu-sh4.
-set -eu
+set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:-$(mktemp -d)}
@@ -31,4 +32,7 @@ if CC="${T}gcc -fpcc-struct-return" \
 fi
 grep '^FAIL' "$OUT/abi-mutant.txt" || true
 echo "PASS: mutated ABI test fails as expected"
+
+echo "== FPU thunk test"
+"$HERE/../sh4/fpu/run-fpu-test.sh" "$OUT/fpu" | tee "$OUT/fpu.txt"
 echo "PASS: sh4-mingw32ce ABI gate"

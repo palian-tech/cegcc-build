@@ -62,7 +62,7 @@ jobs:
               BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
               BINUTILS_COMMIT=a9e430957907734c3fb5329b3f93dcc68439a5f7
               MINGW_REPO=https://github.com/palian-tech/mingwrt
-              MINGW_COMMIT=72d79b48e5b3bdd759c34e0f1d4980846063f82c
+              MINGW_COMMIT=4d2707bb3ff9f1e2a5c37b1e505092ccccc38ac4
               W32API_REPO=https://github.com/palian-tech/w32api
               W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
     steps:

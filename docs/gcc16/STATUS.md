@@ -5,10 +5,12 @@ Specification: [SPEC.md](SPEC.md).
 | Gate | State |
 |---|---|
 | 0 — survey, plan, estimate | done, accepted by the owner (2026-10-23) |
-| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)); device run pending (owner) |
-| 2 — ARM on GCC 16.2 | built; artifact `cetest-arm-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40039062631)); device run pending (owner) |
-| 3 — SH-4 on GCC 16.2 | built; ABI gate passes under qemu-sh4 in CI; artifact `cetest-sh4-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40039062631)); device run pending (owner) |
-| 4 — release `v16.2.0-ce.1` | not started (owner: stop before it) |
+| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)) |
+| 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
+| 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
+| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | mingwrt thunks + FPU thunk test under qemu-sh4; device run pending (owner) |
+| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | not started (after the 3b device run) |
+| 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
 
 Owner pre-approval (2026-10-23 night): continue from Gate 1 into Gate 2
 and from Gate 2 into Gate 3 (if the ABI harness and `open-questions.c`
@@ -23,7 +25,7 @@ Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
 |---|---|---|---|
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
 | `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix (`a817d8b8ee`, used by `arm-gcc16`) + SH-4 weak/linkonce fix (used by `sh4-gcc16`) |
-| `palian-tech/mingwrt` | `ce-16` | `72d79b48e5` | salman `7c35691` + our `0e274ec` + `struct timespec` |
+| `palian-tech/mingwrt` | `ce-16` | `4d2707bb3f` | salman `7c35691` + our `0e274ec` + `struct timespec` (`72d79b48e5`, used by `arm-gcc16`) + SH-4 coredll FPU thunks (used by `sh4-gcc16`) |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
@@ -113,6 +115,33 @@ build args pin the commits), `gcc16/Dockerfile`.
   and the SH-4 CE vector gets `SEC_LINK_ONCE | SEC_LINK_DUPLICATES`. A
   two-TU COMDAT test links on both targets; `cetest` C++20 and C++23 now
   build for SH-4 and import only `COREDLL.dll`.
+
+## Gate 3b — SH-4 `double` calls into coredll (2026-10-24)
+
+Device run of Gate 3: `FAIL snprintf: got "-17|str|ff|z| 0.00"`. mingwex's
+`snprintf` gets its digits from coredll's `_ecvt`/`_fcvt`; the SH-4 coredll
+is `/Qsh4` code and takes the `double` in `dr4`, while `-m4-nofpu` code
+passes it in `r4:r5`. The 9.3 toolchain has the same bug.
+
+* The `/Qsh4` convention, decoded from the MSVC listings already in the
+  repository (`fl`, `callfl`, `calldbl`): [ABI.md](../sh4/ABI.md#calls-into-qsh4-code-coredll-floating-point).
+  `double` arguments in `dr4`, `dr6` (even register = high word), still
+  taking their integer slots; `double` result in `dr0`; `FPSCR.PR` =
+  `SZ` = 0 at calls.
+* mingwrt `4d2707bb3f` (`coredll_fpu.S`, `.lst`, `.sh`): thunks replace
+  the jump stubs in `libcoredll.a` (51 functions) and `libceoldname.a` (15
+  old names). Saved/restored: `PR`, `FPSCR`.
+* Unsupported (listed in ABI.md): `_cabs`/`cabs`, `_frnd`, `_fsqrt`, and
+  `%f`-style conversions in coredll's own `printf`/`scanf` family called
+  directly (`_snprintf`, `_snwprintf`, `swprintf`, ...).
+* `tests/sh4/fpu/run-fpu-test.sh` (in `sh4-abi-gate.sh`): the installed
+  thunks against Microsoft's `/Qsh4` `calldbl` and `fl` and a recording
+  callee, under qemu-sh4 with `FPSCR.PR` set: 26 checks pass; swapping the
+  word order fails it. `sh4-abi-gate.sh` now uses `pipefail` (a failing
+  test piped into `tee` did not fail the gate before).
+* cetest: new check `coredll double functions` (`sqrt`, `floor`, `pow`,
+  `fmod`, `atan2`, `ldexp`, `frexp`, `modf`, `strtod`, `_ecvt`, `sqrtf`
+  through volatile pointers). The SH-4 link map shows the thunks linked.
 
 ## Gate 0 findings (short)
 
