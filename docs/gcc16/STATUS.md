@@ -28,6 +28,14 @@ acceptance runs come later and may send work back.
 
 Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
 
+Branch layout (SPEC.md, Rules): 9.3 moves to `releases/gcc-9` (rename of
+`sh4-mingw32ce` in GitHub, then
+[PR #4](https://github.com/palian-tech/cegcc-build/pull/4) for its
+workflow triggers); `master` becomes the 16.2 line at Gate 4 (merge
+`gcc16`, tag `v16.2.0-ce.1` there). This branch already contains
+`sh4-mingw32ce` up to `v9.3.0-ce.3`. Tags cannot be pushed from the
+session (HTTP 403); the owner pushes them.
+
 | Tree | Branch | Commit | Content |
 |---|---|---|---|
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |

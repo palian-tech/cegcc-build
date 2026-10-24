@@ -242,3 +242,9 @@ in this repository.
 
 New branches only (`gcc16` here, `ce-16.2.0` / `ce-16` in forks). The
 `sh4-mingw32ce` and 9.3 branches and existing tags are not touched.
+
+Branch layout (owner, 2026-10-24): `sh4-mingw32ce` is renamed to
+`releases/gcc-9`, the 9.3 maintenance line (fixes only, tags
+`v9.3.0-ce.N`). At Gate 4, `gcc16` is merged into `master`, which becomes
+the 16.2 line (tags `v16.2.0-ce.N`). The target name `sh4-mingw32ce`
+does not change.

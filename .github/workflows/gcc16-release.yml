@@ -7,7 +7,7 @@
 #                        docker.io/paliantech/cegcc:<tag>
 #   pull request, manual builds and tests only, nothing is pushed
 #
-# :latest and :edge stay with the 9.3 image (image.yml on sh4-mingw32ce).
+# :latest and :edge stay with the 9.3 image (image.yml on releases/gcc-9).
 name: gcc16 release
 
 on:
