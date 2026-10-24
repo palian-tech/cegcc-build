@@ -1,11 +1,13 @@
 #!/bin/bash
 # Builds the gcc16 test program cetest.cpp for one target, once as C++20
-# and once as C++23, and checks the PE headers and imports.
+# and once as C++23 (for sh4-mingw32ce also with -m4-single), and checks
+# the PE headers and imports.
 #
 #   tests/gcc16/build.sh TARGET [OUTDIR]
 #
 # TARGET is arm-mingw32ce or sh4-mingw32ce; TARGET-g++ must be on PATH.
-# Writes OUTDIR/cetest-TARGET-gccN-c++20.exe and ...-c++23.exe, N being
+# Writes OUTDIR/cetest-TARGET-gccN-c++20.exe and ...-c++23.exe (and
+# cetest-sh4-mingw32ce-gccN-m4-single-c++20.exe, ...-c++23.exe), N being
 # the GCC major version (default OUTDIR: out/ in the current directory). A C++23 build that does
 # not compile is reported and skipped; the C++20 build must succeed.
 set -eu
@@ -59,17 +61,27 @@ check() {
 
 "$T-g++" --version | head -n 1
 GCCV=gcc$("$T-g++" -dumpversion | cut -d. -f1)
+# SH-4: also the FPU build (-m4-single, the /Qsh4 convention).
+MODES=-
+[[ $T = sh4-mingw32ce ]] && MODES="- m4-single"
+for mode in $MODES; do
 for std in c++20 c++23; do
+  flags=
   base=$OUT/cetest-$T-$GCCV-$std
+  if [[ $mode != - ]]; then
+    flags=-$mode
+    base=$OUT/cetest-$T-$GCCV-$mode-$std
+  fi
   exe=$base.exe
-  if "$T-g++" -std=$std $CXXFLAGS "$HERE/cetest.cpp" -o "$exe" $LDFLAGS \
-       2> "$base.log"; then
+  if "$T-g++" $flags -std=$std $CXXFLAGS "$HERE/cetest.cpp" -o "$exe" \
+       $LDFLAGS 2> "$base.log"; then
     check "$exe"
   else
     cat "$base.log"
-    [[ $std = c++23 ]] || fail "cetest $std does not compile for $T"
-    echo "SKIP: cetest $std does not compile for $T (log kept)"
+    [[ $std = c++23 ]] || fail "cetest $flags $std does not compile for $T"
+    echo "SKIP: cetest $flags $std does not compile for $T (log kept)"
   fi
   [[ -s $base.log ]] || rm -f "$base.log"
+done
 done
 echo "PASS: cetest for $T"

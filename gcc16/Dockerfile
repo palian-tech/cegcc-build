@@ -2,8 +2,8 @@
 # one prefix (/opt/cegcc), from source trees given by repository and
 # commit, built with this repository's build_cf.sh, plus the test programs.
 #
-# Defaults: both targets (TARGETS), the CeGCC 16.2 trees (ce-16.2.0,
-# ce-2.43.1, ce-16), --disable-threads. From the repository root:
+# Defaults: both targets (TARGETS), the CeGCC 16.2 trees (gcc ce-16.2.0,
+# binutils ce-2.43.1, mingwrt ce-16), --disable-threads. From the repository root:
 #
 #   docker build -f gcc16/Dockerfile --target programs \
 #       --output type=local,dest=out .        # tests, test program EXEs
@@ -46,9 +46,9 @@ RUN for t in ${TARGETS}; do \
 
 FROM binutils AS gcc
 ARG GCC_REPO=https://github.com/palian-tech/gcc
-ARG GCC_COMMIT=43596e5d45735e3b73f464b294792d0203ed8dc2
+ARG GCC_COMMIT=f76b763b701136e3149975bfae267c372588419b
 ARG MINGW_REPO=https://github.com/palian-tech/mingwrt
-ARG MINGW_COMMIT=149c99770d178ddfc05f95f4753971d3de4b75f1
+ARG MINGW_COMMIT=59474758ca835bc3e7d0c4561d2f1e5553993b2a
 ARG W32API_REPO=https://github.com/palian-tech/w32api
 ARG W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
 ARG GCC_THREADS=no
@@ -83,9 +83,10 @@ WORKDIR /src
 COPY docs docs
 COPY tests tests
 # sh4: binutils test, ABI test against the Microsoft compiler's code under
-# qemu-sh4 and its mutation control, FPU thunk test, the qemu hello test
-# (Gates 3, 3b), and the runtime libraries' coredll imports against the
-# CE 5.0 SDK list.
+# qemu-sh4 and its mutation control, FPU thunk test, -m4-single ABI test
+# against the Microsoft /Qsh4 code and its mutation controls, the qemu
+# hello test (Gates 3, 3b, 5), and the runtime libraries' coredll imports
+# against the CE 5.0 SDK list.
 RUN case " ${TARGETS} " in *" sh4-mingw32ce "*) \
         tests/gcc16/sh4-abi-gate.sh /tmp/abi \
         && tests/sh4/prog/run-hello.sh /tmp/hello \

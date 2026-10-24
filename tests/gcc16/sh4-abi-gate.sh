@@ -6,6 +6,8 @@
 # (-fpcc-struct-return) must fail, which shows that the harness detects
 # a calling convention mismatch. Then the FPU thunk test (tests/sh4/fpu):
 # mingwrt's coredll floating-point thunks against Microsoft /Qsh4 code.
+# Last the -m4-single ABI test (tests/sh4/abi/run-fpu-abi-test.sh) against
+# the Microsoft compiler's /Qsh4 code, with its mutation controls.
 #
 #   tests/gcc16/sh4-abi-gate.sh [OUTDIR]
 #
@@ -35,4 +37,22 @@ echo "PASS: mutated ABI test fails as expected"
 
 echo "== FPU thunk test"
 "$HERE/../sh4/fpu/run-fpu-test.sh" "$OUT/fpu" | tee "$OUT/fpu.txt"
+
+echo "== FPU ABI test (-m4-single)"
+"$HERE/../sh4/abi/run-fpu-abi-test.sh" "$OUT/fpu-abi" | tee "$OUT/fpu-abi.txt"
+
+# Mutation controls: each mutant breaks one rule on the Microsoft side
+# (run-fpu-abi-test.sh) and must fail.
+n=$("$HERE/../sh4/abi/run-fpu-abi-test.sh" --count-mutants)
+for m in $(seq 1 "$n"); do
+  echo "== FPU ABI mutation control $m"
+  if "$HERE/../sh4/abi/run-fpu-abi-test.sh" --mutate "$m" "$OUT/fpu-abi-mutant$m" \
+       > "$OUT/fpu-abi-mutant$m.txt" 2>&1; then
+    cat "$OUT/fpu-abi-mutant$m.txt"
+    echo "FAIL: FPU ABI mutant $m passed; the harness misses that rule"
+    exit 1
+  fi
+  grep '^mutant\|^FAIL' "$OUT/fpu-abi-mutant$m.txt" || true
+done
+echo "PASS: all $n FPU ABI mutants fail as expected"
 echo "PASS: sh4-mingw32ce ABI gate"
