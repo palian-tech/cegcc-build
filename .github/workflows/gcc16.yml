@@ -3,9 +3,9 @@
 # program EXEs as the workflow artifact cetest-<job name> (with
 # SHA256SUMS). Nothing is published to a registry.
 #
-# Jobs (each one gcc16-build.yml), from the trees pinned in the
-# Dockerfile (gcc ce-16.2.0, binutils ce-2.43.1, mingwrt and w32api
-# ce-16):
+# Jobs (each one gcc16-build.yml), from the source trees in the
+# submodules (branches ce/gcc-16.2.0, ce/binutils-2.43.1, ce/mingwrt-16,
+# ce/w32api of the forks):
 #   arm-gcc16   arm-mingw32ce
 #   sh4-gcc16   sh4-mingw32ce; the test stage also runs the ABI gate
 #               (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
@@ -17,6 +17,11 @@ on:
     branches: [releases/gcc-16]
     paths:
       - 'Dockerfile'
+      - '.gitmodules'
+      - 'binutils'
+      - 'gcc'
+      - 'mingw'
+      - 'w32api'
       - 'tests/gcc16/**'
       - 'tests/sh4/**'
       - 'build_cf.sh'
@@ -36,7 +41,7 @@ permissions:
   contents: read
 
 jobs:
-  # The CeGCC 16.2 trees (Dockerfile defaults), one job per target.
+  # The CeGCC 16.2 trees (submodules), one job per target.
   toolchain:
     name: ${{ matrix.name }}
     strategy:

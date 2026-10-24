@@ -1,0 +1,16 @@
+[submodule "binutils"]
+	path = binutils
+	url = https://github.com/palian-tech/binutils-gdb
+	branch = ce/binutils-2.43.1
+[submodule "gcc"]
+	path = gcc
+	url = https://github.com/palian-tech/gcc
+	branch = ce/gcc-16.2.0
+[submodule "mingw"]
+	path = mingw
+	url = https://github.com/palian-tech/mingwrt
+	branch = ce/mingwrt-16
+[submodule "w32api"]
+	path = w32api
+	url = https://github.com/palian-tech/w32api
+	branch = ce/w32api
