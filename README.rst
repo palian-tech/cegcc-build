@@ -28,10 +28,11 @@ Building from source::
 Docker image (arm-mingw32ce and sh4-mingw32ce)
 ==============================================
 
-The ``sh4-mingw32ce`` branch publishes an image with both Windows CE
+The ``releases/gcc-9`` branch (the GCC 9.3 line, fixes only; formerly
+``sh4-mingw32ce``) publishes an image with both Windows CE
 targets in ``/opt/cegcc`` (on ``PATH``):
 
-* ``ghcr.io/palian-tech/cegcc:edge`` -- every push to ``sh4-mingw32ce``
+* ``ghcr.io/palian-tech/cegcc:edge`` -- every push to ``releases/gcc-9``
 * ``ghcr.io/palian-tech/cegcc:v9.3.0-ce.N`` and ``:latest`` -- release tags
 
 The same tags are published on Docker Hub as ``paliantech/cegcc``.
