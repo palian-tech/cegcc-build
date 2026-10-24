@@ -44,7 +44,8 @@ session (HTTP 403); the owner pushes them.
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
-Build: `gcc16/Dockerfile`, whose defaults pin the commits above and build
+Build: the `Dockerfile` at the root (`gcc16/Dockerfile` up to
+`v16.2.0-ce.1`), whose defaults pin the commits above and build
 both targets into one prefix (`TARGETS`). `.github/workflows/gcc16.yml`
 builds one target per job; `gcc16-release.yml` builds the image with both
 and publishes it for a `v16.*` tag. Since Gate 4 both targets use the same

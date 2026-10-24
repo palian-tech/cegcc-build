@@ -1,4 +1,4 @@
-# One toolchain build of gcc16/Dockerfile and its test program artifact
+# One toolchain build of the Dockerfile and its test program artifact
 # cetest-<name>; called by gcc16.yml.
 name: gcc16 build
 
@@ -42,7 +42,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: gcc16/Dockerfile
+          file: Dockerfile
           target: programs
           build-args: |
             TARGETS=${{ inputs.targets }}
