@@ -135,7 +135,7 @@ cd ..
 
 # sh4-mingw32ce: w32api installs its own libcoredll.a over mingw's. Give it
 # mingw's thunks for coredll's floating-point functions too
-# (mingw/coredll_fpu.sh, docs/sh4/ABI.md).
+# (mingw/coredll_fpu.sh, docs/sh4-abi.md).
 if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; then
     for lib in libcoredll.a libcoredll6.a; do
         CC=${TARGET}-gcc AR=${TARGET}-ar NM=${TARGET}-nm OBJCOPY=${TARGET}-objcopy \

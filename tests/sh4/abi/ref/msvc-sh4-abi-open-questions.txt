@@ -5,7 +5,7 @@
 
 ## open-questions.c
 /* ABI points not covered by msvc-sh4-abi-reference.txt (see
-   docs/sh4/ABI.md).  Compile with the Microsoft SH-4 compiler like t.c
+   docs/sh4-abi.md).  Compile with the Microsoft SH-4 compiler like t.c
    (clsh /Qsh4 /O2 /c open-questions.c), disassemble, and add the listing
    to the reference.  */
 

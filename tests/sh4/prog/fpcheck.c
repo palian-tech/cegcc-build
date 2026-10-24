@@ -1,10 +1,10 @@
 /* Test program: coredll's floating-point functions called directly and
    snprintf "%f" (which gets its digits from coredll's _ecvt/_fcvt).  On
    SH-4, coredll is /Qsh4 code that takes and returns double in FPU
-   registers; mingwrt's thunks convert from -m4-nofpu (docs/sh4/ABI.md).
+   registers; mingwrt's thunks convert from -m4-nofpu (docs/sh4-abi.md).
    Imports only coredll.
 
-   Output as in tests/gcc16/cetest.cpp: one line per check,
+   Output: one line per check,
      PASS <name>
      FAIL <name>: <reason>
    and a last line
