@@ -166,7 +166,7 @@ one prefix from source trees given as repository + commit build arguments
 `.github/workflows/gcc16.yml` runs it per target and uploads
 `cetest-<job>` (EXEs + `SHA256SUMS`); `gcc16-release.yml` builds the image
 with both targets and, for a `v16.*` tag, pushes it to ghcr.io and Docker
-Hub with `:latest`; pushes to `master` publish `:edge`. The 9.3 line
+Hub with `:latest`; pushes to `releases/gcc-16` publish `:edge`. The 9.3 line
 publishes `:gcc9` (newest `v9.3.0-ce.N`) and `:gcc9-edge` (owner,
 2026-10-24). The 9.3 `Dockerfile` is unchanged;
 `image.yml` on this branch no longer runs for pull requests into `gcc16`
@@ -248,5 +248,6 @@ New branches only (`gcc16` here, `ce-16.2.0` / `ce-16` in forks). The
 Branch layout (owner, 2026-10-24): `sh4-mingw32ce` is renamed to
 `releases/gcc-9`, the 9.3 maintenance line (fixes only, tags
 `v9.3.0-ce.N`). At Gate 4, `gcc16` is merged into `master`, which becomes
-the 16.2 line (tags `v16.2.0-ce.N`). The target name `sh4-mingw32ce`
-does not change.
+the 16.2 line (tags `v16.2.0-ce.N`). After Gate 5, `master` is renamed
+to `releases/gcc-16` (owner, 2026-10-24). The target name
+`sh4-mingw32ce` does not change.

@@ -23,8 +23,9 @@ Branches and tags
 =====================  ======================================================
 Branch                 Use
 =====================  ======================================================
-``master``             GCC 16.2, binutils 2.43.1 (``docs/gcc16``). New work
-                       goes here. Release tags ``v16.2.0-ce.N``
+``releases/gcc-16``    GCC 16.2, binutils 2.43.1 (``docs/gcc16``). Default
+                       branch, new work goes here. Release tags
+                       ``v16.2.0-ce.N``
 ``releases/gcc-9``     GCC 9.3, binutils 2.34 (``docs/sh4``). Maintenance
                        line, fixes only. Release tags ``v9.3.0-ce.N``
 =====================  ======================================================
@@ -56,7 +57,7 @@ Tag                       Content
                           ``sh4-mingw32ce``
 ``latest``                the newest ``v16.2.0-ce.N`` (up to
                           ``v9.3.0-ce.3`` it was the newest 9.3 release)
-``edge``                  every push to ``master`` (GCC 16.2)
+``edge``                  every push to ``releases/gcc-16`` (GCC 16.2)
 ``gcc9``                  the newest ``v9.3.0-ce.N``
 ``gcc9-edge``             every push to ``releases/gcc-9``
 ========================  ===================================================
@@ -77,7 +78,7 @@ libraries as usual, e.g. ``-lcommctrl`` or ``-lceddk``.
 Building from source
 ====================
 
-GCC 16.2 (``master``): ``gcc16/Dockerfile`` fetches the trees by commit
+GCC 16.2 (``releases/gcc-16``): ``gcc16/Dockerfile`` fetches the trees by commit
 (``palian-tech/gcc`` ``ce-16.2.0``, ``binutils-gdb`` ``ce-2.43.1``,
 ``mingwrt`` and ``w32api`` ``ce-16``) and builds both targets with
 ``build_cf.sh``::
