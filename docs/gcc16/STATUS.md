@@ -32,7 +32,7 @@ Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
 |---|---|---|---|
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
 | `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix (`a817d8b8ee`, used by `arm-gcc16`) + SH-4 weak/linkonce fix (used by `sh4-gcc16`) |
-| `palian-tech/mingwrt` | `ce-16` | `4d2707bb3f` | salman `7c35691` + our `0e274ec` + `struct timespec` (`72d79b48e5`, used by `arm-gcc16`) + SH-4 coredll FPU thunks (used by `sh4-gcc16`) |
+| `palian-tech/mingwrt` | `ce-16` | `2ebd01bc48` | salman `7c35691` + our `0e274ec` + `struct timespec` (`72d79b48e5`, used by `arm-gcc16`) + SH-4 coredll FPU thunks (used by `sh4-gcc16`) |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
@@ -135,7 +135,7 @@ passes it in `r4:r5`. The 9.3 toolchain has the same bug.
   `double` arguments in `dr4`, `dr6` (even register = high word), still
   taking their integer slots; `double` result in `dr0`; `FPSCR.PR` =
   `SZ` = 0 at calls.
-* mingwrt `4d2707bb3f` (`coredll_fpu.S`, `.lst`, `.sh`): thunks replace
+* mingwrt `2ebd01bc48` (`coredll_fpu.S`, `.lst`, `.sh`): thunks replace
   the jump stubs in `libcoredll.a` (51 functions) and `libceoldname.a` (15
   old names). Saved/restored: `PR`, `FPSCR`.
 * Unsupported (listed in ABI.md): `_cabs`/`cabs`, `_frnd`, `_fsqrt`, and
