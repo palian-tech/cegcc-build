@@ -2,8 +2,8 @@
 # one prefix (/opt/cegcc), from source trees given by repository and
 # commit, built with this repository's build_cf.sh, plus the test programs.
 #
-# Defaults: both targets (TARGETS), the CeGCC 16.2 trees (gcc ce-16.2.0-fpu,
-# binutils ce-2.43.1, mingwrt ce-16-m4-single), --disable-threads. From the repository root:
+# Defaults: both targets (TARGETS), the CeGCC 16.2 trees (gcc ce-16.2.0,
+# binutils ce-2.43.1, mingwrt ce-16), --disable-threads. From the repository root:
 #
 #   docker build -f gcc16/Dockerfile --target programs \
 #       --output type=local,dest=out .        # tests, test program EXEs
@@ -48,7 +48,7 @@ FROM binutils AS gcc
 ARG GCC_REPO=https://github.com/palian-tech/gcc
 ARG GCC_COMMIT=f76b763b701136e3149975bfae267c372588419b
 ARG MINGW_REPO=https://github.com/palian-tech/mingwrt
-ARG MINGW_COMMIT=2bc99735f499d025cae53207bc76980b6e0c130f
+ARG MINGW_COMMIT=59474758ca835bc3e7d0c4561d2f1e5553993b2a
 ARG W32API_REPO=https://github.com/palian-tech/w32api
 ARG W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
 ARG GCC_THREADS=no

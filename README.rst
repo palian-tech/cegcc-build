@@ -71,8 +71,11 @@ Pull one and compile for each target::
 
 ``sh4-mingw32ce`` produces Windows CE 5.00 SH-4 images (PE machine 0x01A6,
 image base 0x10000) following the calling convention of the Microsoft SH-4
-compiler; floating point is software only (``-m4-nofpu``). Link extra
-libraries as usual, e.g. ``-lcommctrl`` or ``-lceddk``.
+compiler. Floating point is in software by default (``-m4-nofpu``); since
+GCC 16.2 ``-m4-single`` uses the SH-4 FPU with the calling convention of
+the Microsoft compiler's ``/Qsh4`` (``docs/sh4/ABI.md``), in the next
+``v16.2.0-ce.N`` and in ``edge``. Link extra libraries as usual, e.g.
+``-lcommctrl`` or ``-lceddk``.
 
 Building from source
 ====================

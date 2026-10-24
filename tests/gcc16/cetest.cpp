@@ -735,11 +735,12 @@ Result coredll_double()
 // from coredll's _ecvt/_fcvt) and strtod/wcstod (coredll). On SH-4 the
 // -m4-nofpu build reaches coredll through mingwrt's thunks, the
 // -m4-single build directly (docs/sh4/ABI.md).
-Result c_float_format()
+Result c_printf_float()
 {
     volatile double vd = 3.14159, vsmall = -0.000123456, vbig = 1234567.0;
+    volatile double vzero = 0.0, v1e10 = 1e10, v1em4 = 0.0001;
     volatile float vf = 2.5f;
-    char buf[128];
+    char buf[160];
     snprintf(buf, sizeof buf, "%.3f|%.3e|%g|%g|%g|%.1f", (double)vd,
              (double)vd, (double)vsmall, (double)vbig, (double)vf,
              (double)(vf * 2.0f));
@@ -750,6 +751,18 @@ Result c_float_format()
                   "3.142|3.142e+000|-0.000123456|1.23457e+006|2.5|5.0") != 0)
         return std::string("got \"") + buf + "\"";
 
+    // %g drops non-significant trailing zeros, %#g keeps them.
+    snprintf(buf, sizeof buf, "%g|%g|%g|%#g|%#g|%#.3g", (double)vzero,
+             (double)v1e10, (double)v1em4, (double)vf, (double)vzero,
+             (double)vf);
+    if (strcmp(buf, "0|1e+10|0.0001|2.50000|0.00000|2.50") != 0
+        && strcmp(buf, "0|1e+010|0.0001|2.50000|0.00000|2.50") != 0)
+        return std::string("got \"") + buf + "\"";
+    return {};
+}
+
+Result c_strtod()
+{
     const char *s = "-1.5e2,0.15625";
     char *end = nullptr;
     double d = strtod(s, &end);
@@ -885,7 +898,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
 #endif
     run("coredll double functions", coredll_double);
     run("snprintf", c_snprintf);
-    run("printf %f %e %g, strtod", c_float_format);
+    run("printf %f %e %g", c_printf_float);
+    run("strtod, wcstod", c_strtod);
     run("wide strings", c_wide);
     run("64-bit and 32-bit division", int64_division);
 
