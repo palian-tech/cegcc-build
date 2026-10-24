@@ -225,3 +225,5 @@ Gate 3b).
   pass and `%f` prints ` 3.14`; `%e` prints `3.142e+000` (three-digit
   exponent, as Microsoft's CRT), now accepted by `fpcheck`. Accepted;
   tagged `v9.3.0-ce.3`.
+* The qemu FPU test checks the calling convention against stubs. CRT
+  formatting (such as the three-digit exponent) shows only on a device.
