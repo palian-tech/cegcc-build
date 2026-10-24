@@ -124,10 +124,13 @@ tools on ``PATH`` (``python3`` and ``qemu-sh4`` for the SH-4 ones):
 * ``tests/gcc16/runtime-imports.sh``: the runtime libraries import only
   functions of the CE 5.0 SDK's coredll (``tests/sh4/coredll``).
 * ``tests/gcc16/build.sh TARGET OUTDIR``: builds ``cetest`` (C++20 and
-  C++23; on SH-4 also ``-m4-single``) and checks PE headers and coredll
-  imports. ``cetest`` is the program to run on a device: one
-  ``PASS``/``FAIL``/``XFAIL``/``SKIP`` line per check and a ``DONE`` line,
-  in ``cetest.txt`` next to the EXE.
+  C++23; on SH-4 also ``-m4-single``; and a ``-g`` C++20 build) and
+  checks PE headers and coredll imports. ``cetest`` is the program to run
+  on a device: one ``PASS``/``FAIL``/``XFAIL``/``SKIP`` line per check and
+  a ``DONE`` line, in ``cetest.txt`` next to the EXE.
+* ``tests/gcc16/gdb-check.sh TARGET OUTDIR``: the target's gdb reads the
+  ``-g`` build: line info for ``WinMain`` and a check function, and the
+  type and frame location of two of its locals.
 
 Known limitations
 =================
@@ -139,8 +142,12 @@ Known limitations
   is built from a condition variable. ``std::chrono::steady_clock`` and
   timed waits count milliseconds of ``GetTickCount``; ``system_clock``
   is the system time advanced by ``GetTickCount`` between its seconds.
-* Debug info in linked images is not usable yet (SH gas has no
-  ``.secrel32``).
+* Debug info: ``-g`` images carry DWARF that the image's
+  ``arm-mingw32ce-gdb`` and ``sh4-mingw32ce-gdb`` read (link without
+  ``-s``). There is no gdbserver for Windows CE; attach gdb to an
+  emulator's gdb stub. On ARM, an 8-byte local (``double``,
+  ``long long``) in a function whose frame GCC realigns has no location
+  at ``-O0`` outside its first use.
 * Exceptions are SJLJ and the runtime is linked statically, so an
   exception cannot cross a DLL boundary.
 * ``dllimport`` is ignored on SH-4; use ``__imp_`` pointers for data

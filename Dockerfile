@@ -11,8 +11,9 @@
 #       --output type=local,dest=out .        # tests, test program EXEs
 #   docker build -t cegcc:16 .   # the image
 #
-# Stages: binutils -> gcc -> image; test runs the sh4 tests (sh4 only)
-# and builds the test program, programs holds only the EXEs.
+# Stages: binutils (with gdb) -> gcc -> image; test runs the sh4 tests
+# (sh4 only), builds the test program and checks gdb on its -g build,
+# programs holds only the EXEs.
 
 ARG BASE_IMAGE=ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
 
@@ -20,13 +21,13 @@ FROM ${BASE_IMAGE} AS build-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential flex bison texinfo file \
-        libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev \
+        libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libncurses-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY build_cf.sh ./
 
 FROM build-base AS binutils
-ARG BINUTILS_FLAGS="--disable-gdb --disable-gdbserver --disable-sim"
+ARG BINUTILS_FLAGS="--disable-gdbserver --disable-sim"
 ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 ARG PREFIX=/opt/cegcc
 COPY binutils binutils
@@ -77,7 +78,10 @@ RUN case " ${TARGETS} " in *" sh4-mingw32ce "*) \
         tests/gcc16/sh4-abi-gate.sh /tmp/abi \
         && tests/sh4/prog/run-hello.sh /tmp/hello \
         && tests/gcc16/runtime-imports.sh sh4-mingw32ce /tmp/rt;; esac
-RUN for t in ${TARGETS}; do tests/gcc16/build.sh $t /out || exit 1; done \
+# cetest for each target (also a -g build), and the target's gdb reading
+# that build's DWARF (line info, a local's type and frame location).
+RUN for t in ${TARGETS}; do tests/gcc16/build.sh $t /out \
+        && tests/gcc16/gdb-check.sh $t /out || exit 1; done \
     && cd /out && sha256sum *.exe | tee SHA256SUMS
 
 FROM scratch AS programs
