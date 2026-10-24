@@ -41,6 +41,26 @@ check() {
   local got
   got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort -u | tr '\n' ' ')
   [[ $got = "COREDLL.dll " ]] || fail "$exe: imports '$got', want 'COREDLL.dll '"
+  if [[ $T = sh4-mingw32ce ]]; then
+    # Every imported function must be one the SH-4 CE 5.0 coredll exports
+    # (coredll-sh4.txt). Of the float math functions it has only ceilf,
+    # floorf and fmodf.
+    local f bad=""
+    for f in $(awk '/^\t[0-9a-f]+ +<none> +[0-9a-f]+ /{print $4}' <<<"$p" | sort -u); do
+      case $f in
+      ceilf|floorf|fmodf) ;;
+      *f)
+        case ${f%f} in
+        acos|asin|atan|atan2|cos|cosh|exp|fabs|frexp|ldexp|log|log10|modf|\
+        pow|sin|sinh|sqrt|tan|tanh|_isnan|_isunordered|_copysign|_chgsign|\
+        _logb|_nextafter|_scalb|_hypot|_finite|_fpclass)
+          bad="$bad $f"; continue ;;
+        esac ;;
+      esac
+      grep -qx "$f" "$HERE/coredll-sh4.txt" || bad="$bad $f"
+    done
+    [[ -z $bad ]] || fail "$exe: imports not known to exist in the SH-4 CE 5.0 coredll:$bad (see tests/gcc16/coredll-sh4.txt)"
+  fi
   echo "ok: $exe ($got, $(stat -c %s "$exe") bytes)"
 }
 

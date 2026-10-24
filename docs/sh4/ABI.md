@@ -121,7 +121,12 @@ restores `FPSCR`.
   `_isunordered`.
 * `ceilf`, `floorf`, `sqrtf`, `fmodf`, `_isnanf`, `_isunorderedf` are
   computed by the `double` function (exact for these), so only the proven
-  `double` rules are used; `fabsf` clears the sign bit.
+  `double` rules are used; `fabsf` clears the sign bit. Their import
+  members are removed from the library: the CE 5.0 SH-4 coredll exports
+  only `ceilf`, `floorf` and `fmodf` of the `float` math functions, and a
+  missing import keeps an EXE from loading without a message.
+  `tests/gcc16/build.sh` checks every coredll import of the SH-4 cetest
+  against `tests/gcc16/coredll-sh4.txt`.
 * Not covered: `_cabs`/`cabs` (struct of two doubles by value), `_frnd`,
   `_fsqrt` (CRT internals), and floating-point conversions in coredll's own
   `printf`/`scanf` family when called directly (`_snprintf`, `swprintf`,

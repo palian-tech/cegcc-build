@@ -1,0 +1,78 @@
+# COREDLL functions that the SH-4 cetest may import (tests/gcc16/build.sh).
+# A function the device's coredll.dll does not export makes the EXE fail to
+# load without a message, so every import of the SH-4 build must be listed
+# here. The list holds the imports of the cetest builds run on the SH-4
+# CE 5.0 device (Gates 3 and 3b). Of the float math functions, that
+# coredll exports only ceilf, floorf and fmodf (no sqrtf, fabsf, ...).
+# Add a name only when it is known to be exported there.
+CloseHandle
+CreateFileW
+CreateProcessW
+CreateThread
+DeleteCriticalSection
+DeleteFileW
+EnterCriticalSection
+FlushFileBuffers
+FormatMessageW
+GetCPInfo
+GetExitCodeProcess
+GetLastError
+GetModuleFileNameW
+InitializeCriticalSection
+InterlockedExchange
+LeaveCriticalSection
+LocalFree
+MultiByteToWideChar
+OutputDebugStringW
+ReadFile
+SetFilePointer
+Sleep
+TerminateProcess
+VirtualProtect
+VirtualQuery
+WaitForSingleObject
+WideCharToMultiByte
+WriteFile
+_divls
+_divlu
+_ecvt
+_fcloseall
+_fcvt
+_fpreset
+_getstdfilex
+_isnan
+_modls
+_modlu
+_snwprintf
+atan2
+fflush
+floor
+fmod
+fputc
+free
+frexp
+fwrite
+ldexp
+malloc
+memchr
+memcmp
+memcpy
+memmove
+memset
+modf
+pow
+realloc
+sqrt
+strcmp
+strlen
+strtoul
+vfprintf
+wcscat
+wcschr
+wcscmp
+wcscpy
+wcslen
+wcsncmp
+wcsstr
+wcstol
+wcstoul

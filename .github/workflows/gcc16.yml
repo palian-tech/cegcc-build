@@ -75,7 +75,7 @@ jobs:
               BINUTILS_REPO=https://github.com/palian-tech/binutils-gdb
               BINUTILS_COMMIT=a9e430957907734c3fb5329b3f93dcc68439a5f7
               MINGW_REPO=https://github.com/palian-tech/mingwrt
-              MINGW_COMMIT=87bc83d59495c8c80db9676bb34ab4c89bb02fe1
+              MINGW_COMMIT=149c99770d178ddfc05f95f4753971d3de4b75f1
               W32API_REPO=https://github.com/palian-tech/w32api
               W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
     uses: ./.github/workflows/gcc16-build.yml
