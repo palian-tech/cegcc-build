@@ -23,6 +23,8 @@
 
 #include <algorithm>
 #include <any>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -51,6 +53,7 @@
 #include <expected>
 #endif
 #if defined(_GLIBCXX_HAS_GTHREADS)
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 #endif
@@ -636,21 +639,253 @@ Result thread_local_createthread()
 }
 
 #if defined(_GLIBCXX_HAS_GTHREADS)
-Result std_thread_mutex()
+// The threads below are std::thread (gthr-win32.h's CE part in libgcc).
+// Windows CE devices have one core, so the checks yield inside critical
+// sections to make the threads meet.
+
+Result std_thread_join()
+{
+    int value = 0;
+    std::thread::id child;
+    std::thread t([&] {
+        value = 42;
+        child = std::this_thread::get_id();
+    });
+    EXPECT(t.joinable());
+    std::thread::id tid = t.get_id();
+    EXPECT(tid != std::this_thread::get_id());
+    t.join();
+    EXPECT(!t.joinable());
+    EXPECT(value == 42);
+    EXPECT(child == tid);
+
+    // A detached thread signals through a Win32 event.
+    HANDLE ev = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ev)
+        return "CreateEventW failed";
+    std::thread([ev] { SetEvent(ev); }).detach();
+    DWORD w = WaitForSingleObject(ev, 10000);
+    CloseHandle(ev);
+    EXPECT(w == WAIT_OBJECT_0);
+    return {};
+}
+
+Result std_mutex_contention()
 {
     std::mutex m;
     long sum = 0;
+    LONG contended = 0;
     std::vector<std::thread> ts;
     for (int i = 0; i < 4; ++i)
         ts.emplace_back([&] {
-            for (int k = 0; k < 1000; ++k) {
-                std::lock_guard<std::mutex> lock(m);
-                ++sum;
+            for (int k = 0; k < 500; ++k) {
+                if (!m.try_lock()) {
+                    InterlockedIncrement(&contended);
+                    m.lock();
+                }
+                long v = sum;
+                std::this_thread::yield();
+                sum = v + 1;
+                m.unlock();
             }
         });
     for (auto &t : ts)
         t.join();
-    EXPECT(sum == 4000);
+    EXPECT(sum == 2000);
+    // try_lock found the mutex taken: the semaphore path ran.
+    if (contended == 0)
+        return "no contention seen";
+
+    std::recursive_mutex rm;
+    rm.lock();
+    EXPECT(rm.try_lock());
+    rm.unlock();
+    bool other = true;
+    std::thread([&] { other = rm.try_lock(); }).join();
+    rm.unlock();
+    EXPECT(!other);
+    return {};
+}
+
+Result std_condition_variable()
+{
+    // One producer, one consumer, a queue of 200 items.
+    std::mutex m;
+    std::condition_variable cv;
+    std::deque<int> q;
+    bool done = false;
+    long sum = 0;
+    std::thread consumer([&] {
+        std::unique_lock<std::mutex> lock(m);
+        for (;;) {
+            cv.wait(lock, [&] { return !q.empty() || done; });
+            while (!q.empty()) {
+                sum += q.front();
+                q.pop_front();
+            }
+            if (done)
+                break;
+        }
+    });
+    for (int i = 1; i <= 200; ++i) {
+        {
+            std::lock_guard<std::mutex> lock(m);
+            q.push_back(i);
+        }
+        cv.notify_one();
+        if (i % 16 == 0)
+            std::this_thread::yield();
+    }
+    {
+        std::lock_guard<std::mutex> lock(m);
+        done = true;
+    }
+    cv.notify_one();
+    consumer.join();
+    EXPECT(sum == 200 * 201 / 2);
+
+    // notify_all wakes three waiters.
+    int ready = 0, woken = 0;
+    bool go = false;
+    std::vector<std::thread> ts;
+    for (int i = 0; i < 3; ++i)
+        ts.emplace_back([&] {
+            std::unique_lock<std::mutex> lock(m);
+            ++ready;
+            cv.notify_all();
+            cv.wait(lock, [&] { return go; });
+            ++woken;
+        });
+    {
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait(lock, [&] { return ready == 3; });
+        go = true;
+    }
+    cv.notify_all();
+    for (auto &t : ts)
+        t.join();
+    EXPECT(woken == 3);
+
+    // A timed wait that nobody signals times out.
+    std::unique_lock<std::mutex> lock(m);
+    EXPECT(cv.wait_for(lock, std::chrono::milliseconds(50)) ==
+           std::cv_status::timeout);
+    return {};
+}
+
+// std::atomic read-modify-writes are library calls on these targets
+// (libgcc's atomic-wince.c): 4 bytes on Interlocked functions, 1 and 2
+// bytes by compare-and-swap of their word, 8 bytes under a lock.
+Result std_atomic()
+{
+    std::atomic<int> i{0};
+    std::atomic<short> h{0};
+    std::atomic<unsigned char> c[4] = {};
+    std::atomic<long long> ll{0};
+    std::atomic<int> cas{0};
+    std::vector<std::thread> ts;
+    for (int t = 0; t < 4; ++t)
+        ts.emplace_back([&, t] {
+            for (int k = 0; k < 1000; ++k) {
+                i.fetch_add(1);
+                h.fetch_sub(1);
+                c[t].fetch_add(1); // neighbours in one word
+                ll.fetch_add(0x100000001LL);
+                int e = cas.load();
+                while (!cas.compare_exchange_weak(e, e + 2))
+                    ;
+                if (k % 100 == 0)
+                    std::this_thread::yield();
+            }
+        });
+    for (auto &t : ts)
+        t.join();
+    EXPECT(i == 4000 && h == -4000 && cas == 8000);
+    EXPECT(c[0] == 1000 % 256 && c[1] == c[0] && c[2] == c[0] &&
+           c[3] == c[0]);
+    EXPECT(ll == 4000 * 0x100000001LL);
+    EXPECT(i.exchange(5) == 4000 && i == 5);
+    return {};
+}
+
+Result std_call_once()
+{
+    std::once_flag flag;
+    LONG calls = 0;
+    std::vector<std::thread> ts;
+    for (int i = 0; i < 4; ++i)
+        ts.emplace_back([&] {
+            std::call_once(flag, [&] {
+                std::this_thread::yield();
+                InterlockedIncrement(&calls);
+            });
+        });
+    for (auto &t : ts)
+        t.join();
+    EXPECT(calls == 1);
+    return {};
+}
+
+Result std_thread_exceptions()
+{
+    // Thrown and caught inside the thread, while the main thread has
+    // its own exception in flight.
+    std::string inner;
+    std::exception_ptr ep;
+    try {
+        throw std::logic_error("main");
+    } catch (const std::logic_error &) {
+        std::thread t([&] {
+            try {
+                thrower(3);
+            } catch (const std::exception &e) {
+                inner = e.what();
+            }
+            try {
+                throw std::out_of_range("to main");
+            } catch (...) {
+                ep = std::current_exception();
+            }
+        });
+        t.join();
+    }
+    EXPECT(inner == "deep");
+    bool rethrown = false;
+    try {
+        std::rethrow_exception(ep);
+    } catch (const std::out_of_range &e) {
+        rethrown = std::string(e.what()) == "to main";
+    }
+    EXPECT(rethrown);
+    return {};
+}
+
+// thread_local objects of a std::thread are destroyed when it returns.
+LONG g_tl_dtors;
+struct TlCounted {
+    int v = 3;
+    ~TlCounted() { InterlockedIncrement(&g_tl_dtors); }
+};
+thread_local TlCounted t_counted;
+
+Result std_thread_local()
+{
+    g_tl_dtors = 0;
+    t_value = 5;
+    int seen[2] = {-1, -1};
+    std::thread t([&] {
+        seen[0] = t_value;
+        t_value = 77;
+        seen[1] = t_counted.v;
+    });
+    t.join();
+    int mine = t_value;
+    t_value = 1;
+    EXPECT(seen[0] == 1 && mine == 5);
+    EXPECT(seen[1] == 3);
+    if (g_tl_dtors != 1)
+        return "thread_local destructor ran " + std::to_string(g_tl_dtors) +
+               " times, expected 1";
     return {};
 }
 #endif
@@ -890,7 +1125,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
     run("thread_local in the main thread", thread_local_main);
 #if defined(_GLIBCXX_HAS_GTHREADS)
     run("thread_local with CreateThread", thread_local_createthread);
-    run("std::thread and std::mutex", std_thread_mutex);
+    run("std::thread join, detach", std_thread_join);
+    run("std::mutex contention", std_mutex_contention);
+    run("std::condition_variable", std_condition_variable);
+    run("std::atomic", std_atomic);
+    run("std::call_once", std_call_once);
+    run("exception inside a std::thread", std_thread_exceptions);
+    run("thread_local in a std::thread", std_thread_local);
 #else
     run_xfail("thread_local with CreateThread", thread_local_createthread,
               "threads disabled, emutls has one copy for all threads");

@@ -3,7 +3,8 @@
 # mingw, w32api), built with this repository's build_cf.sh, plus the test
 # programs.
 #
-# Defaults: both targets (TARGETS), --disable-threads. From the root of a
+# Defaults: both targets (TARGETS), win32 threads (GCC_THREADS; the CE part
+# of gcc's gthr-win32.h). From the root of a
 # checkout with submodules (git clone --recurse-submodules):
 #
 #   docker build --target programs \
@@ -37,7 +38,7 @@ RUN for t in ${TARGETS}; do \
     done; rm -rf build-* binutils
 
 FROM binutils AS gcc
-ARG GCC_THREADS=no
+ARG GCC_THREADS=win32
 ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 ARG PREFIX=/opt/cegcc
 COPY mingw mingw
