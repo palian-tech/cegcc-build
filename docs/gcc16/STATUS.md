@@ -8,7 +8,7 @@ Specification: [SPEC.md](SPEC.md).
 | 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)) |
 | 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
-| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | early device run of `8ef7cde`: EXE did not load (`sqrtf` import, not in the CE 5.0 coredll); fixed; artifact `cetest-sh4-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)); device run pending (owner) |
+| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | not started (after the 3b device run) |
 | 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
 | 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
@@ -146,10 +146,13 @@ passes it in `r4:r5`. The 9.3 toolchain has the same bug.
   `sqrtf` import member in through `__imp__sqrtf` although the thunk
   uses `sqrt`, and the CE 5.0 SH-4 coredll has no `sqrtf` (of the `float`
   math functions only `ceilf`, `floorf`, `fmodf`). mingwrt `149c99770d`
-  removes the import members of rerouted functions; `build.sh` now checks
-  every coredll import of the SH-4 cetest against
-  `tests/gcc16/coredll-sh4.txt` (and rejects `float` math other than those
-  three).
+  removes the import members of rerouted functions.
+* coredll export lists (owner, `tests/gcc16/coredll/`): the CE 5.0
+  Standard SDK's `coredll.lib` for SH-4 and ARMV4I, and the coredll of a
+  reference CE 5.0 SH-4 device and a reference CE 6/7 ARM device
+  (OEM-trimmed). `runtime-imports.sh` (SH-4 job): the runtime libraries
+  linked whole import 163 coredll functions, all in the SDK list.
+  `build.sh`: cetest imports must be in SDK ∩ device list, both targets.
 * Unsupported (listed in ABI.md): `_cabs`/`cabs`, `_frnd`, `_fsqrt`, and
   `%f`-style conversions in coredll's own `printf`/`scanf` family called
   directly (`_snprintf`, `_snwprintf`, `swprintf`, ...).

@@ -76,10 +76,13 @@ WORKDIR /src
 COPY docs docs
 COPY tests tests
 # sh4: binutils test, ABI test against the Microsoft compiler's code under
-# qemu-sh4 and its mutation control, the qemu hello test (Gate 3).
+# qemu-sh4 and its mutation control, FPU thunk test, the qemu hello test
+# (Gates 3, 3b), and the runtime libraries' coredll imports against the
+# CE 5.0 SDK list.
 RUN if [ "${TARGET}" = sh4-mingw32ce ]; then \
         tests/gcc16/sh4-abi-gate.sh /tmp/abi \
-        && tests/sh4/prog/run-hello.sh /tmp/hello; fi
+        && tests/sh4/prog/run-hello.sh /tmp/hello \
+        && tests/gcc16/runtime-imports.sh ${TARGET} /tmp/rt; fi
 RUN tests/gcc16/build.sh ${TARGET} /out \
     && cd /out && sha256sum *.exe | tee SHA256SUMS
 

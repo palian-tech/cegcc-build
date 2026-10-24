@@ -125,8 +125,10 @@ restores `FPSCR`.
   members are removed from the library: the CE 5.0 SH-4 coredll exports
   only `ceilf`, `floorf` and `fmodf` of the `float` math functions, and a
   missing import keeps an EXE from loading without a message.
-  `tests/gcc16/build.sh` checks every coredll import of the SH-4 cetest
-  against `tests/gcc16/coredll-sh4.txt`.
+  `tests/gcc16/runtime-imports.sh` checks that the runtime libraries
+  import only functions of the CE 5.0 SDK's coredll
+  (`tests/gcc16/coredll/ce5-sdk-sh4.txt`); `tests/gcc16/build.sh` checks
+  cetest's imports against the SDK list and a reference device's list.
 * Not covered: `_cabs`/`cabs` (struct of two doubles by value), `_frnd`,
   `_fsqrt` (CRT internals), and floating-point conversions in coredll's own
   `printf`/`scanf` family when called directly (`_snprintf`, `swprintf`,
