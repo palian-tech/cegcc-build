@@ -5,7 +5,7 @@ Specification: [SPEC.md](SPEC.md).
 | Gate | State |
 |---|---|
 | 0 — survey, plan, estimate | done, accepted by the owner (2026-10-23) |
-| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)) |
+| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)); its job `gate1-arm-gcc14` was removed from `gcc16.yml` on 2026-10-24 |
 | 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |

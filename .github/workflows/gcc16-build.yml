@@ -12,10 +12,6 @@ on:
         description: TARGETS build arg, one or more targets
         type: string
         required: true
-      trees:
-        description: build args that pin other source trees (empty = Dockerfile defaults, the CeGCC 16.2 trees)
-        type: string
-        default: ""
 
 permissions:
   contents: read
@@ -46,7 +42,6 @@ jobs:
           target: programs
           build-args: |
             TARGETS=${{ inputs.targets }}
-            ${{ inputs.trees }}
           outputs: type=local,dest=out
           cache-from: type=gha,scope=gcc16-${{ inputs.name }}
           cache-to: type=gha,mode=max,scope=gcc16-${{ inputs.name }}
