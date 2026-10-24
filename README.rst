@@ -54,8 +54,11 @@ Tag                       Content
 ``v9.3.0-ce.2``           as ``v9.3.0-ce.1``, also on Docker Hub
 ``v9.3.0-ce.1``           GCC 9.3, binutils 2.34, first release with
                           ``sh4-mingw32ce``
-``latest``                the newest ``v9.3.0-ce.N``
-``edge``                  every push to ``releases/gcc-9``
+``latest``                the newest ``v16.2.0-ce.N`` (up to
+                          ``v9.3.0-ce.3`` it was the newest 9.3 release)
+``edge``                  every push to ``master`` (GCC 16.2)
+``gcc9``                  the newest ``v9.3.0-ce.N``
+``gcc9-edge``             every push to ``releases/gcc-9``
 ========================  ===================================================
 
 Pull one and compile for each target::

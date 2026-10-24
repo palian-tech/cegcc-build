@@ -166,7 +166,9 @@ one prefix from source trees given as repository + commit build arguments
 `.github/workflows/gcc16.yml` runs it per target and uploads
 `cetest-<job>` (EXEs + `SHA256SUMS`); `gcc16-release.yml` builds the image
 with both targets and, for a `v16.*` tag, pushes it to ghcr.io and Docker
-Hub (`:latest` stays with 9.3). The 9.3 `Dockerfile` is unchanged;
+Hub with `:latest`; pushes to `master` publish `:edge`. The 9.3 line
+publishes `:gcc9` (newest `v9.3.0-ce.N`) and `:gcc9-edge` (owner,
+2026-10-24). The 9.3 `Dockerfile` is unchanged;
 `image.yml` on this branch no longer runs for pull requests into `gcc16`
 or for `v16.*` tags.
 

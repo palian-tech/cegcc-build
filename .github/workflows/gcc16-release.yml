@@ -3,15 +3,17 @@
 # Runs the tests and builds the test programs for both targets (artifact
 # cegcc16-test-programs, with SHA256SUMS), then builds the image.
 #
-#   tag v16.*            pushes ghcr.io/palian-tech/cegcc:<tag> and
-#                        docker.io/paliantech/cegcc:<tag>
+#   tag v16.*            :<tag> and :latest
+#   push to master       :edge
 #   pull request, manual builds and tests only, nothing is pushed
-#
-# :latest and :edge stay with the 9.3 image (image.yml on releases/gcc-9).
+# on ghcr.io/palian-tech/cegcc and docker.io/paliantech/cegcc. :latest and
+# :edge follow the newest line; the 9.3 line has :gcc9 and :gcc9-edge
+# (image.yml on releases/gcc-9).
 name: gcc16 release
 
 on:
   push:
+    branches: [master]
     tags: ['v16.*']
   pull_request:
     branches: [master, gcc16]
@@ -19,9 +21,11 @@ on:
       - '.github/workflows/gcc16-release.yml'
   workflow_dispatch:
 
+# A newer push to master cancels the older run, so an older run cannot
+# finish last and overwrite :edge; tag runs are never cancelled.
 concurrency:
   group: gcc16-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref == 'refs/heads/master' }}
 
 permissions:
   contents: read
@@ -30,7 +34,7 @@ permissions:
 env:
   IMAGE: ghcr.io/palian-tech/cegcc
   DOCKERHUB_IMAGE: docker.io/paliantech/cegcc
-  PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v16.') }}
+  PUBLISH: ${{ github.event_name == 'push' }}
 
 jobs:
   image:
@@ -75,6 +79,8 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=tag
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v16.') }}
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/master' }}
 
       - if: env.PUBLISH == 'true'
         uses: docker/login-action@v4
