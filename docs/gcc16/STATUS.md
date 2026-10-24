@@ -9,7 +9,7 @@ Specification: [SPEC.md](SPEC.md).
 | 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
-| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | not started (after the 3b device run) |
+| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | in progress: [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) into `sh4-mingw32ce` (mingwrt branch `sh4-mingw32ce-fpu`, `db06d03`); waiting for CI, then a device run of `fpcheck-sh4-mingw32ce.exe` |
 | 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
 | 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
