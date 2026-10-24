@@ -82,7 +82,7 @@ take and return `float`/`double` in FPU registers, while `-m4-nofpu` code
 passes them in integer registers. Without a conversion they read garbage:
 before Gate 3b, `snprintf("%5.2f", 3.14159)` printed ` 0.00` on the device,
 because mingwex's `snprintf` gets its digits from coredll's `_ecvt`/`_fcvt`.
-The 9.3 toolchain has the same problem.
+The 9.3 toolchain had the same problem up to `v9.3.0-ce.2`.
 
 The `/Qsh4` convention, from `fl`, `callfl`
 ([reference](msvc-sh4-abi-reference.txt)) and `calldbl`
@@ -129,6 +129,9 @@ restores `FPSCR`.
   import only functions of the CE 5.0 SDK's coredll
   (`tests/gcc16/coredll/ce5-sdk-sh4.txt`); `tests/gcc16/build.sh` checks
   cetest's imports against the SDK list and a reference device's list.
+  On 9.3, `tests/sh4/prog/build.sh` checks its test programs' coredll imports
+  against the CE 5.0 SDK's list (`tests/sh4/coredll/ce5-sdk-sh4.txt`) and
+  a reference device's list.
 * Not covered: `_cabs`/`cabs` (struct of two doubles by value), `_frnd`,
   `_fsqrt` (CRT internals), and floating-point conversions in coredll's own
   `printf`/`scanf` family when called directly (`_snprintf`, `swprintf`,

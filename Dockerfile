@@ -71,6 +71,7 @@ RUN set -e; \
     tests/sh4/binutils-test.sh; \
     tests/sh4/abi/run-abi-test.sh /tmp/abi; \
     tests/sh4/prog/run-hello.sh /tmp/hello; \
+    tests/sh4/fpu/run-fpu-test.sh /tmp/fpu; \
     for t in ${TARGETS}; do tests/sh4/prog/build.sh $t /out; done; \
     cd /out && sha256sum *.exe | tee SHA256SUMS
 

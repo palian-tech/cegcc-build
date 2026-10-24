@@ -14,7 +14,7 @@ on:
   push:
     tags: ['v16.*']
   pull_request:
-    branches: [gcc16]
+    branches: [master, gcc16]
     paths:
       - '.github/workflows/gcc16-release.yml'
   workflow_dispatch:
