@@ -32,17 +32,21 @@ The ``releases/gcc-9`` branch (the GCC 9.3 line, fixes only; formerly
 ``sh4-mingw32ce``) publishes an image with both Windows CE
 targets in ``/opt/cegcc`` (on ``PATH``):
 
-* ``ghcr.io/palian-tech/cegcc:edge`` -- every push to ``releases/gcc-9``
-* ``ghcr.io/palian-tech/cegcc:v9.3.0-ce.N`` and ``:latest`` -- release tags
+* ``ghcr.io/palian-tech/cegcc:v9.3.0-ce.N`` -- release tags
+* ``ghcr.io/palian-tech/cegcc:gcc9`` -- the newest ``v9.3.0-ce.N``
+* ``ghcr.io/palian-tech/cegcc:gcc9-edge`` -- every push to ``releases/gcc-9``
+
+``:latest`` and ``:edge`` follow the newest line (GCC 16.2, branch
+``master``); ``:latest`` pointed to 9.3 up to ``v9.3.0-ce.3``.
 
 The same tags are published on Docker Hub as ``paliantech/cegcc``.
 
 Pull it and compile for each target::
 
- docker pull ghcr.io/palian-tech/cegcc:edge
- docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:edge \
+ docker pull ghcr.io/palian-tech/cegcc:gcc9
+ docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:gcc9 \
      sh4-mingw32ce-gcc -O2 -D_WIN32_WCE=0x500 hello.c -o hello-sh4.exe
- docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:edge \
+ docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:gcc9 \
      arm-mingw32ce-gcc -O2 -D_WIN32_WCE=0x500 hello.c -o hello-arm.exe
 
 ``sh4-mingw32ce`` produces Windows CE 5.00 SH-4 images (PE machine 0x01A6,
