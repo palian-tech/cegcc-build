@@ -15,8 +15,8 @@
 # Build directories are build-TARGET/* in the current directory.
 #
 # GCC_THREADS (environment) is the --enable-threads model of GCC, default
-# win32; "no" builds GCC with --disable-threads (GCC 13 and later need
-# Vista APIs for win32 threads, which Windows CE does not have).
+# win32; "no" builds GCC with --disable-threads. On Windows CE, win32 is
+# the CE part of gcc's libgcc/config/i386/gthr-win32.h (no Vista APIs).
 # BINUTILS_FLAGS (environment) adds options to the binutils configure,
 # e.g. "--disable-gdb --disable-sim".
 #
