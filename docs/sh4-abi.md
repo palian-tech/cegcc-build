@@ -2,7 +2,7 @@
 
 GCC for `sh4-mingw32ce` follows the calling convention of the Microsoft
 SH-4 compiler (eVC4 `clsh.exe`). The ground truth is
-[`msvc-sh4-abi-reference.txt`](msvc-sh4-abi-reference.txt). The
+[`msvc-sh4-abi-reference.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt). The
 implementation is the `TARGET_MSABI` code in `gcc/config/sh/` (sh.c, sh.md,
 mingw32ce.h) on the `sh4-mingw32ce` branch of `palian-tech/gcc`.
 
@@ -15,9 +15,9 @@ binutils and gcc, python3 and qemu-sh4.
    instruction for instruction (the literal pools and relocations stay at the
    same offsets). The re-assembled code is the real MSVC code, not a
    re-implementation. The script uses
-   [`msvc-sh4-abi-reference.txt`](msvc-sh4-abi-reference.txt) and both
+   [`msvc-sh4-abi-reference.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt) and both
    sections of
-   [`msvc-sh4-abi-open-questions.txt`](msvc-sh4-abi-open-questions.txt):
+   [`msvc-sh4-abi-open-questions.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt):
    `/Qsh4 /O2`, plus `calldbl` from the build without `/Qsh4`.
 2. `harness.c` is compiled by sh4-mingw32ce-gcc and linked with that code.
    It calls the MSVC functions (GCC → MSVC) and defines the functions the
@@ -85,8 +85,8 @@ device, because mingwex's `snprintf` gets its digits from coredll's
 `_ecvt`/`_fcvt`.
 
 The `/Qsh4` convention, from `fl`, `callfl`
-([reference](msvc-sh4-abi-reference.txt)) and `calldbl`
-([open questions](msvc-sh4-abi-open-questions.txt), section 1), with the FPU
+([reference](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt)) and `calldbl`
+([open questions](../tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt), section 1), with the FPU
 words decoded by hand:
 
 | Rule | Evidence |

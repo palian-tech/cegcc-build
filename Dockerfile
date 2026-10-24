@@ -65,7 +65,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 WORKDIR /src
-COPY docs docs
 COPY tests tests
 RUN set -e; \
     tests/sh4/binutils-test.sh; \

@@ -14,9 +14,17 @@ TAG=$1 SRC=$2 RUN=${3:-} PROGRAMS=${4:-} EXTRA=${5:-}
 IMAGE=ghcr.io/palian-tech/cegcc
 HUB=paliantech/cegcc
 
-pin() {  # pin ARG: the default of ARG in gcc16/Dockerfile
-  sed -n "s/^ARG $1=//p" "$SRC/gcc16/Dockerfile" | head -n 1
+# The 16.2 Dockerfile is at the root since the 9.3 line moved to its own
+# branch; tags up to v16.2.0-ce.1 have it in gcc16/.
+DOCKERFILE=$SRC/Dockerfile
+[ -f "$SRC/gcc16/Dockerfile" ] && DOCKERFILE=$SRC/gcc16/Dockerfile
+pin() {  # pin ARG: the default of ARG in the 16.2 Dockerfile
+  sed -n "s/^ARG $1=//p" "$DOCKERFILE" | head -n 1
 }
+# The calling convention doc: docs/sh4-abi.md, docs/sh4/ABI.md in older
+# tags (links to a tag keep pointing at the file that tag has).
+ABI_DOC=docs/sh4-abi.md
+[ -f "$SRC/$ABI_DOC" ] || ABI_DOC=docs/sh4/ABI.md
 sub() {  # sub PATH: the submodule commit at TAG
   git -C "$SRC" ls-tree HEAD "$1" | awk '{print $3}'
 }
@@ -26,14 +34,14 @@ tree() {  # tree REPO COMMIT
 
 case $TAG in
 v16.*)
-  [ -n "$(pin GCC_COMMIT)" ] || { echo "release-notes.sh: no pins in $SRC/gcc16/Dockerfile" >&2; exit 1; }
+  [ -n "$(pin GCC_COMMIT)" ] || { echo "release-notes.sh: no pins in $DOCKERFILE" >&2; exit 1; }
   cat <<END
 CeGCC 16.2: GCC 16.2.0 and binutils 2.43.1 cross toolchains for Windows CE
 in one Docker image, both targets in \`/opt/cegcc\` (on \`PATH\`):
 
 * \`arm-mingw32ce\`: ARM, Windows CE 6 and 7
 * \`sh4-mingw32ce\`: SH-4, Windows CE 5.0, with the calling convention of the
-  Microsoft SH-4 compiler ([docs/sh4/ABI.md](https://github.com/palian-tech/cegcc-build/blob/$TAG/docs/sh4/ABI.md))
+  Microsoft SH-4 compiler ([$ABI_DOC](https://github.com/palian-tech/cegcc-build/blob/$TAG/$ABI_DOC))
 END
   if [ -f "$SRC/tests/sh4/abi/run-fpu-abi-test.sh" ]; then
     cat <<END
@@ -61,7 +69,7 @@ toolchains for Windows CE in one Docker image, both targets in
 
 * \`arm-mingw32ce\`: ARM, Windows CE 6 and 7
 * \`sh4-mingw32ce\`: SH-4, Windows CE 5.0, with the calling convention of the
-  Microsoft SH-4 compiler ([docs/sh4/ABI.md](https://github.com/palian-tech/cegcc-build/blob/$TAG/docs/sh4/ABI.md)),
+  Microsoft SH-4 compiler ([$ABI_DOC](https://github.com/palian-tech/cegcc-build/blob/$TAG/$ABI_DOC)),
   software floating point (\`-m4-nofpu\`)
 
 Source trees (submodules):
@@ -79,7 +87,11 @@ esac
 body=$(git -C "$SRC" for-each-ref "refs/tags/$TAG" --format='%(contents:body)' \
   | sed -e '/-----BEGIN PGP SIGNATURE-----/,$d')
 if [ -n "$EXTRA" ] && [ -s "$EXTRA" ]; then
-  body=$(printf '%s\n\n%s' "$body" "$(cat "$EXTRA")")
+  if [ -n "$(tr -d '[:space:]' <<<"$body")" ]; then
+    body=$(printf '%s\n\n%s' "$body" "$(cat "$EXTRA")")
+  else
+    body=$(cat "$EXTRA")
+  fi
 fi
 if [ -n "$(tr -d '[:space:]' <<<"$body")" ]; then
   printf '\n## In this release\n\n%s\n' "$body"
@@ -128,11 +140,8 @@ elif [ -f "$t/sh4/prog/build.sh" ]; then
   echo "* Test programs of \`tests/sh4/prog\` built for both targets, PE headers and coredll imports checked"
 fi
 echo
-echo "Device runs on Windows CE (SH-4 and ARM) are recorded in"
-case $TAG in
-v16.*) echo "[docs/gcc16/STATUS.md](https://github.com/palian-tech/cegcc-build/blob/$TAG/docs/gcc16/STATUS.md)." ;;
-v9.*) echo "the pull requests of the release." ;;
-esac
+echo "Results of device runs on Windows CE (SH-4 and ARM) go under \"In this"
+echo "release\" (release-page.yml, input \`notes\`)."
 
 if [ -n "$PROGRAMS" ] && [ -f "$PROGRAMS/SHA256SUMS" ]; then
   echo

@@ -5,7 +5,7 @@
 #   tag v9.*                ghcr.io/palian-tech/cegcc:<tag> and :gcc9,
 #                           and the release page (release-page.yml)
 # Every tag is also pushed to docker.io/paliantech/cegcc. :latest and
-# :edge belong to the newest line (master, GCC 16.2).
+# :edge belong to the newest line (releases/gcc-16, GCC 16.2).
 # The test programs are uploaded as the workflow artifact
 # cegcc-test-programs (with SHA256SUMS).
 name: image

@@ -8,7 +8,7 @@ Windows CE, with two targets built into one prefix:
 * ``sh4-mingw32ce`` -- Hitachi/Renesas SH-4 Windows CE 5.0, following the
   calling convention of the Microsoft SH-4 compiler (eVC4). The convention is
   tested by linking real Microsoft-compiled code with GCC code and calling in
-  both directions (``docs/sh4/ABI.md``).
+  both directions (`docs/sh4-abi.md <docs/sh4-abi.md>`_).
 
 It is published as a Docker image (below), so Windows CE programs for both
 CPUs can be built in CI without proprietary tools.
@@ -37,7 +37,7 @@ targets in ``/opt/cegcc`` (on ``PATH``):
 * ``ghcr.io/palian-tech/cegcc:gcc9-edge`` -- every push to ``releases/gcc-9``
 
 ``:latest`` and ``:edge`` follow the newest line (GCC 16.2, branch
-``master``); ``:latest`` pointed to 9.3 up to ``v9.3.0-ce.3``.
+``releases/gcc-16``); ``:latest`` pointed to 9.3 up to ``v9.3.0-ce.3``.
 
 The same tags are published on Docker Hub as ``paliantech/cegcc``.
 
@@ -59,4 +59,18 @@ To build the image yourself::
  git submodule update --init
  docker build --network host -t cegcc .
 
-See ``docs/sh4/STATUS.md`` for the build steps, tests and current status.
+The image build runs the tests in ``tests/sh4`` before it is published:
+
+* ``binutils-test.sh`` -- SH-4 assembler and linker checks.
+* ``abi/run-abi-test.sh`` -- GCC code linked with the Microsoft SH-4
+  compiler's code (listings in ``tests/sh4/abi/ref``) and run under
+  qemu-sh4, calls in both directions.
+* ``fpu/run-fpu-test.sh`` -- coredll floating-point thunks against
+  ``/Qsh4`` code under qemu-sh4.
+* ``prog/run-hello.sh`` and ``prog/build.sh`` -- test programs for both
+  targets, PE headers and coredll imports checked against
+  ``tests/sh4/coredll``.
+
+Status and open items of this line: `issue #14
+<https://github.com/palian-tech/cegcc-build/issues/14>`_ (16.2 line: `issue
+#15 <https://github.com/palian-tech/cegcc-build/issues/15>`_).
