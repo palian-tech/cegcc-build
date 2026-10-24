@@ -11,7 +11,7 @@ Specification: [SPEC.md](SPEC.md).
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
 | 4 — release `v16.2.0-ce.1` | accepted (2026-10-24): device run of the combined image's programs ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628)), SH-4 and ARM: C++20 `DONE 16/16 xfail=1 skip=3`, C++23 `DONE 17/17 xfail=1 skip=2`; merged into `gcc16` and `master`, tag by the owner |
-| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | estimate below; step a: `tests/sh4/abi/fpu-cases.c` waits for the maintainer's `clsh /Qsh4 /O2` listing |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | steps a–e done (2026-10-24): `-m4-single` with the `/Qsh4` convention, multilib, FPU ABI test passes under qemu with 6 mutation controls; waits for the SH-4 device run of the `-m4-single` cetest programs (step f) |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
 
@@ -38,13 +38,16 @@ session (HTTP 403); the owner pushes them.
 
 | Tree | Branch | Commit | Content |
 |---|---|---|---|
+| `palian-tech/gcc` | `ce-16.2.0-fpu` | `f76b763b70` | `ce-16.2.0` (`43596e5d45`, Gate 4) + `-m4-single` with the `/Qsh4` convention (Gate 5) |
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
 | `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix + SH-4 weak/linkonce fix |
+| `palian-tech/mingwrt` | `ce-16-m4-single` | `2bc99735f4` | `ce-16` + the float functions for `-m4-single` (Gate 5) |
 | `palian-tech/mingwrt` | `ce-16` | `149c99770d` | salman `7c35691` + our `0e274ec` + `struct timespec` + SH-4 coredll FPU thunks |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
-Build: `gcc16/Dockerfile`, whose defaults pin the commits above and build
+Build: `gcc16/Dockerfile`, whose defaults pin the commits above (the Gate 5
+branches while Gate 5 is open) and build
 both targets into one prefix (`TARGETS`). `.github/workflows/gcc16.yml`
 builds one target per job; `gcc16-release.yml` builds the image with both
 and publishes it for a `v16.*` tag. Since Gate 4 both targets use the same
@@ -190,6 +193,49 @@ passes it in `r4:r5`. The 9.3 toolchain has the same bug.
   `:latest`/`:edge`.
 * Actions on Node 24: checkout v7, upload-artifact v7, setup-buildx v4,
   build-push v7, metadata v6, login v4.
+
+## Gate 5 — SH-4 FPU code, `-m4-single` (2026-10-24)
+
+* Convention decoded from the owner's `/Qsh4 /O2` listing of
+  `tests/sh4/abi/fpu-cases.c` (`docs/sh4/msvc-sh4-fpu-cases.txt`) and
+  written up in [ABI.md](../sh4/ABI.md#-m4-single-the-qsh4-convention):
+  4-byte slots for every argument, named `float`/`double` in `fr4`..`fr11`
+  allocated apart from the slots (lowest free single / even pair, with
+  back-fill), stack in their slots when the FPU registers run out,
+  anonymous arguments and structs in integer slots, results in `fr0`/`dr0`,
+  `fr12`..`fr15` callee-saved, `FPSCR.PR`/`SZ` = 0 at boundaries.
+  `__i64tod`/`__i64tos` take the `__int64` by address.
+* `msvc2gas.py` needed no change: the whole listing (54 functions)
+  re-assembles with `as -isa=sh4` to the same instructions and literal
+  pools (checked instruction by instruction against `objdump`).
+* GCC (`ce-16.2.0-fpu`): `-m4-single` follows the convention
+  (`sh_ms_fpu_abi_p` in `sh.cc`); `-m4`, `-m4-single-only`, `-mfmovd` are
+  rejected; multilibs `.` (`-m4-nofpu`, default) and `m4-single`.
+  `build_cf.sh` enables multilibs for SH-4 and builds mingwrt and w32api
+  once more for each extra multilib into `lib/m4-single`.
+* mingwrt (`ce-16-m4-single`): `-m4-single` calls coredll directly, so its
+  import libraries get no thunks; `coredll_fpu.sh` only replaces the
+  `float` functions (`sqrtf` and `fabsf` are missing from the CE 5.0 SH-4
+  coredll) by C functions that call the `double` ones.
+* Tests: `tests/sh4/abi/run-fpu-abi-test.sh` links all 54 Microsoft
+  functions with `fpu-harness.c` (GCC `-m4-single`) under qemu-sh4: both
+  call directions, every argument recorded, canaries, stack pointer and
+  `FPSCR.PR`/`SZ` at every call and return. Six mutation controls change
+  one rule each on the Microsoft side (float slot, back-fill, `dr4` vs
+  `dr6`, stack slot of the 9th float, `PR` left set, result register) and
+  each fails. `sh4-abi-gate.sh` runs all of it.
+  `tests/gcc16/build.sh` also builds cetest with `-m4-single`
+  (`cetest-sh4-mingw32ce-gcc16-m4-single-c++20.exe`, `...-c++23.exe`);
+  cetest has a new check `printf %f %e %g, strtod`. The runtime import
+  check covers both multilibs.
+* Not covered by the listing (GCC's choice, in ABI.md): a 4-byte struct of
+  one `float` returned in `r0`; named `float`/`double` arguments of a
+  variadic function in FPU registers.
+
+Device run (step f), SH-4 CE 5.0: the four cetest EXEs of the
+`cegcc16-test-programs` artifact. Expected: `-m4-nofpu` as in Gate 4 plus
+the new check; `-m4-single` the same results, its header line says
+`sh4 -m4-single`.
 
 ## Gate 0 findings (short)
 

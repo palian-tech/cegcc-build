@@ -731,6 +731,38 @@ Result coredll_double()
     return {};
 }
 
+// printf's floating-point conversions (mingwex, which gets its digits
+// from coredll's _ecvt/_fcvt) and strtod/wcstod (coredll). On SH-4 the
+// -m4-nofpu build reaches coredll through mingwrt's thunks, the
+// -m4-single build directly (docs/sh4/ABI.md).
+Result c_float_format()
+{
+    volatile double vd = 3.14159, vsmall = -0.000123456, vbig = 1234567.0;
+    volatile float vf = 2.5f;
+    char buf[128];
+    snprintf(buf, sizeof buf, "%.3f|%.3e|%g|%g|%g|%.1f", (double)vd,
+             (double)vd, (double)vsmall, (double)vbig, (double)vf,
+             (double)(vf * 2.0f));
+    // Windows CE's CRT, like Microsoft's on the desktop, prints a
+    // three-digit exponent.
+    if (strcmp(buf, "3.142|3.142e+00|-0.000123456|1.23457e+06|2.5|5.0") != 0
+        && strcmp(buf,
+                  "3.142|3.142e+000|-0.000123456|1.23457e+006|2.5|5.0") != 0)
+        return std::string("got \"") + buf + "\"";
+
+    const char *s = "-1.5e2,0.15625";
+    char *end = nullptr;
+    double d = strtod(s, &end);
+    EXPECT(d == -150.0 && *end == ',');
+    d = strtod(end + 1, &end);
+    EXPECT(d == 0.15625 && *end == 0);
+    float f = (float)strtod("6.25", nullptr);
+    EXPECT(f == 6.25f);
+    wchar_t *wend = nullptr;
+    EXPECT(wcstod(L"-0.75x", &wend) == -0.75 && *wend == L'x');
+    return {};
+}
+
 Result c_wide()
 {
     wchar_t w[64];
@@ -814,6 +846,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
              (long)__cplusplus,
 #if defined(__arm__)
              "arm"
+#elif defined(__SH4_SINGLE__)
+             "sh4 -m4-single"
 #elif defined(__SH4__) || defined(__sh__)
              "sh4"
 #else
@@ -851,6 +885,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
 #endif
     run("coredll double functions", coredll_double);
     run("snprintf", c_snprintf);
+    run("printf %f %e %g, strtod", c_float_format);
     run("wide strings", c_wide);
     run("64-bit and 32-bit division", int64_division);
 

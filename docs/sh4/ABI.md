@@ -71,8 +71,57 @@ libgcc's 64-bit division also ends up calling `__divlu`. `LIBGCC_SPEC` links
   through `__imp_` pointers (`__itod`, `__addd`), passing results and
   operands by address. GCC uses libgcc's fp-bit instead. These helpers are
   internal to each compiler, so no interface depends on the choice.
-* **FPU code.** GCC generates `-m4-nofpu` code only. Calls into `/Qsh4`
-  code (coredll) go through thunks; see the next section.
+* **FPU code.** `-m4-nofpu` is the default. `-m4-single` generates FPU code
+  with the `/Qsh4` convention (next section); `-m4`, `-m4-single-only` and
+  `-mfmovd` are rejected. `-m4-nofpu` code calls into `/Qsh4` code
+  (coredll) through thunks; see the section after next.
+
+## -m4-single: the /Qsh4 convention
+
+`-m4-single` follows the FPU convention of the Microsoft compiler with
+`/Qsh4`. The ground truth is
+[`msvc-sh4-fpu-cases.txt`](msvc-sh4-fpu-cases.txt), the `/Qsh4 /O2` code
+of `tests/sh4/abi/fpu-cases.c`. Integer arguments, structs and results
+that are not `float` or `double` follow the rules above unchanged.
+
+| Rule | Functions in the listing |
+|---|---|
+| Every argument takes 4-byte slots, a `double` two. An argument of the integer class goes in `r4`+slot for slots 0–3, otherwise on the stack at `@(4*slot,r15)` (slot 4 is `@(16,r15)`, above the home area). A `float` or `double` in an FPU register still takes its slots: `ext_fi (1.5f, 7)` passes `7` in `r5`, `ext_mix (7, 1.5f, 8, 2.25, 2.5f, 9)` passes `8` in `r6` and `9` at `@(24,r15)` | `call_fi`, `take_fi`, `call_mix`, `take_mix`, `call_iiiif` |
+| Named `float` and `double` arguments go in `fr4`..`fr11`, allocated apart from the slots: a `float` in the lowest free single register, a `double` in the lowest free even pair `dr4`..`dr10` (even register = high word). A `float` fills a single register left over before a `double`: `ext_mix` gets `1.5f` in `fr4`, `2.25` in `dr6` and `2.5f` in `fr5`; `ext_fd (1.5f, 2.25)` gets `fr4` and `dr6`; `ext_id (7, 2.25)` gets `r4` and `dr4` | `call_f`, `call_ff`, `call_if`, `call_id`, `call_fd`, `call_mix`, `call_f8`, `call_ptr` and their `take_*` |
+| When the FPU registers are used up, a `float` or `double` goes on the stack in its slots: the 9th and 10th `float` at `@(32,r15)` and `@(36,r15)`, the 5th `double` at `@(32,r15)` (low word) and `@(36,r15)` (high word). The caller reserves stack for all slots, at least the 16-byte home area | `call_f10`, `take_f10`, `call_d5`, `take_d5`, `call_ddd` |
+| `__int64` takes two integer slots as before: `(__int64, double)` passes `r4:r5` and `dr4`, `(__int64, float)` `r4:r5` and `fr4` | `call_ld`, `take_ld`, `call_lf`, `take_lf` |
+| Anonymous arguments use the integer class: a `float` is promoted to `double`, a `double` takes two slots, low word first, in registers or on the stack, with no alignment. `va_list` stays a plain pointer into the home area and the stack arguments | `call_v`, `call_v2`, `take_v` |
+| Structs are passed in integer slots, also when all their members are `float` or `double` (`F2` in `r5`, `r6`; `F4` in `r5`..`r7` and `@(16,r15)`; `D1` in `r5`, `r6`). Struct results larger than 4 bytes go through the hidden pointer in `r4` | `call_F2` … `take_FI` |
+| A `float` result comes back in `fr0`, a `double` result in `dr0` (`fr0` high word) | `call_f`, `take_f`, `call_id`, `take_id` |
+| `fr12`..`fr15` are callee-saved, `fr0`..`fr11` call-clobbered | `keep_d`, `keep_f`, `mixed_prec` |
+| `FPSCR.PR` = 0 and `FPSCR.SZ` = 0 at calls and returns. Code sets `PR` around `double` arithmetic (`sts fpscr` / `or` / `lds`) and clears it with `and`, keeping the other bits | every function with `double` arithmetic |
+| Conversions and comparisons are inline (`float`, `ftrc`, `fcnvsd`, `fcnvds`, `fcmp`). `__int64` conversions call coredll's `__i64tod` and `__i64tos`, which take the `__int64` by address, and `__dtoi64`, which returns it through the hidden pointer | `d2i` … `dne`, `take_ld`, `take_lf` |
+
+GCC implements this in `sh_function_arg`, `sh_function_arg_advance` and
+`sh_arg_partial_bytes` (`sh_ms_fpu_abi_p` in `gcc/config/sh/sh.cc`). Named
+arguments of a variadic function count as named
+(`sh_strict_argument_naming`), so they go in FPU registers like in any
+other call; the listing has no such case. GCC's own `__int64`
+conversions come from libgcc; `__i64tod` and the others are coredll's
+internal helpers for Microsoft-compiled code.
+
+`tests/sh4/abi/run-fpu-abi-test.sh` links all functions of the listing
+with `fpu-harness.c`, compiled by GCC with `-m4-single`, and runs them
+under qemu-sh4 like the integer test: GCC calls every `take_*`, `keep_*`
+and conversion function, every `call_*` calls GCC callees that record
+their arguments, and `FPSCR.PR`/`SZ` are checked at each call and return.
+Its mutation controls (`--mutate N`) each change one rule in the
+Microsoft code (an `int` after a `float` in `r4`, no back-fill, a `double`
+read from `dr6`, the 9th `float` one slot low, `PR` left set, a `float`
+result in `fr1`); each makes the test fail.
+
+Not in the listing, GCC's choice: a struct of 4 bytes or less whose only
+member is a `float` comes back in `r0` like any small struct, and complex
+types are passed like structs.
+
+`-m4-single` is a multilib: libgcc, libstdc++, mingwrt and w32api are
+built for it into `sh4-mingw32ce/lib/m4-single`. That mingwrt has no
+thunks, since its code calls coredll with coredll's own convention.
 
 ## Calls into /Qsh4 code (coredll floating point)
 
@@ -97,11 +146,8 @@ words decoded by hand:
 | A `double` result comes back in `dr0` (`fr0` high, `fr1` low) | `fl` and `calldbl` move their result to `fr0`/`fr1`; `callfl` and `calldbl` read the callee's result from `dr0` |
 | `FPSCR.PR` = 0 and `FPSCR.SZ` = 0 at calls and returns. Code sets `PR` around `double` arithmetic and clears it again, keeping the other bits | every `/Qsh4` function: `sts fpscr` / `or` / `lds` … `and` / `lds`; `fmov` moves doubles as two singles |
 
-Not shown by the listings, and not relied on: how a `float` result comes
-back (presumably `fr0`), where a first `float` argument goes (`fr4` or
-`fr5`), whether a `float` takes an integer slot, and where a `double`
-after an `int` goes (`_jn`, `_yn` assume `dr4`, since FPU registers are
-allocated apart from integer slots in every listing).
+The rest of the convention, and that `_jn` and `_yn` (`int`, `double`)
+take the `double` in `dr4`, is in the previous section.
 
 mingwrt (`coredll_fpu.S`, `coredll_fpu.lst`, `coredll_fpu.sh`) replaces the
 jump stubs of these functions in `libcoredll.a` and `libceoldname.a` with

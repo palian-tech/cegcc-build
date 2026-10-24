@@ -96,6 +96,13 @@ fi
 if [[ "$TARGET" = "arm-mingw32ce" || "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+="--disable-__cxa_atexit"
 fi
+# sh4-mingw32ce: GCC 16 has the multilibs -m4-nofpu (default) and
+# -m4-single (the FPU convention of Microsoft's /Qsh4, docs/sh4/ABI.md).
+if [[ "$TARGET" = "sh4-mingw32ce" ]]; then
+       ADDITIONAL_GCC_PARAMETERS+=" --enable-multilib"
+else
+       ADDITIONAL_GCC_PARAMETERS+=" --disable-multilib"
+fi
 
 # The binutils of this prefix.
 export PATH="${PREFIXDIR}/bin:$OLDPATH"
@@ -104,7 +111,7 @@ rm -rf gcc
 mkdir gcc
 cd gcc
 "${SRCDIR}"/gcc/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
-    --enable-languages=c,c++ --disable-shared --disable-multilib --disable-nls \
+    --enable-languages=c,c++ --disable-shared --disable-nls \
     --disable-werror --disable-win32-registry --disable-libstdcxx-verbose \
     ${ADDITIONAL_GCC_PARAMETERS}
 
@@ -155,6 +162,34 @@ if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; t
             coredll "${SRCDIR}"/mingw
     done
 fi
+
+
+# The runtime once more for each further multilib (sh4-mingw32ce:
+# m4-single), into lib/<multilib>. Headers are the same and not installed
+# again. -m4-single calls coredll with coredll's own convention: for it,
+# coredll_fpu.sh only replaces the float functions that coredll lacks.
+for ml in $(${TARGET}-gcc -print-multi-lib | sed -n 's/^\([^.][^;]*\);.*/\1/p'); do
+    flags=$(${TARGET}-gcc -print-multi-lib | sed -n "s/^$ml;//p" | sed 's/@/ -/g')
+    for c in mingw w32api; do
+        rm -rf "$c-$ml"
+        mkdir "$c-$ml"
+        cd "$c-$ml"
+        CC="${TARGET}-gcc$flags" "${SRCDIR}"/$c/configure --prefix="${PREFIXDIR}" \
+            --host="${TARGET}" --target="${TARGET}"
+        make $J
+        make install inst_libdir="${PREFIXDIR}/${TARGET}/lib/$ml" \
+            inst_includedir="$PWD/unused/include" inst_bindir="$PWD/unused/bin" \
+            inst_docdir="$PWD/unused/doc"
+        cd ..
+    done
+    if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; then
+        for lib in libcoredll.a libcoredll6.a; do
+            CC="${TARGET}-gcc$flags" AR=${TARGET}-ar NM=${TARGET}-nm \
+                OBJCOPY=${TARGET}-objcopy sh "${SRCDIR}"/mingw/coredll_fpu.sh \
+                "${PREFIXDIR}/${TARGET}/lib/$ml/$lib" coredll "${SRCDIR}"/mingw
+        done
+    fi
+done
 
 
 # Continue building the rest of GCC as before.
