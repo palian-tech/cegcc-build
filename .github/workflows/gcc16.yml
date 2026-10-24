@@ -16,6 +16,8 @@ on:
     paths:
       - 'gcc16/**'
       - 'tests/gcc16/**'
+      - 'tests/sh4/**'
+      - 'docs/sh4/**'
       - 'build_cf.sh'
       - '.github/workflows/gcc16.yml'
   pull_request:
