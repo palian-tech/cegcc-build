@@ -1,0 +1,101 @@
+# Creates or updates the GitHub release page of a tag: notes from
+# .github/scripts/release-notes.sh (what is in the line, the source trees,
+# the image tags on ghcr.io and Docker Hub, the tests) and the test
+# programs of the image build as assets.
+#
+# Called by gcc16-release.yml (v16.*) and image.yml (v9.*, on
+# releases/gcc-9) after the image is published. Run by hand
+# (workflow_dispatch) to backfill or redo a page for an existing tag.
+name: release page
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      programs_run:
+        description: Run whose test-program artifact is attached
+        type: string
+        default: ''
+      notes:
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag (v16.* or v9.*)
+        required: true
+      programs_run:
+        description: ID of the image build run of the tag (test programs, link)
+        required: false
+      notes:
+        description: Extra notes (Markdown), e.g. device-run results
+        required: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gh runs outside a checkout (tools/ and src/ are subdirectories).
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.programs_run }}
+      NOTES: ${{ inputs.notes }}
+    steps:
+      # The scripts of the workflow's ref, the sources of the tag.
+      - uses: actions/checkout@v7
+        with:
+          path: tools
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: src
+
+      - name: Test programs of the image build
+        if: inputs.programs_run != ''
+        run: |
+          case $TAG in
+          v16.*) name=cegcc16-test-programs ;;
+          *) name=cegcc-test-programs ;;
+          esac
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+                 --jq ".artifacts[] | select(.name == \"$name\") | .id" | head -n 1)
+          test -n "$id" || { echo "no artifact $name in run $RUN_ID"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > programs.zip
+          mkdir programs && unzip -q programs.zip -d programs && ls -l programs
+
+      - name: Notes
+        run: |
+          printf '%s\n' "$NOTES" > extra.md
+          run=
+          [ -z "$RUN_ID" ] || run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID
+          progs=
+          [ ! -d programs ] || progs=programs
+          bash tools/.github/scripts/release-notes.sh "$TAG" src "$run" "$progs" extra.md > notes.md
+          cat notes.md
+
+      - name: Create or update the release
+        run: |
+          case $TAG in
+          v16.*) title="CeGCC ${TAG#v} for Windows CE (GCC 16.2)" ;;
+          *) title="CeGCC ${TAG#v} for Windows CE (GCC 9.3)" ;;
+          esac
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$title" --notes-file notes.md
+          else
+            # :latest belongs to the 16.2 line; 9.3 releases are not
+            # marked as the latest release either.
+            latest=false
+            case $TAG in v16.*) latest=true ;; esac
+            gh release create "$TAG" --verify-tag --title "$title" \
+              --notes-file notes.md --latest=$latest
+          fi
+          if [ -d programs ]; then
+            gh release upload "$TAG" --clobber programs/*.exe programs/SHA256SUMS
+          fi
