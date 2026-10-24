@@ -1,5 +1,5 @@
 # CeGCC 16.2 image: both targets (arm-mingw32ce and
-# sh4-mingw32ce) in /opt/cegcc, from the trees pinned in the Dockerfile.
+# sh4-mingw32ce) in /opt/cegcc, from the source trees in the submodules.
 # Runs the tests and builds the test programs for both targets (artifact
 # cegcc16-test-programs, with SHA256SUMS), then builds the image.
 #
@@ -48,7 +48,10 @@ jobs:
             /opt/hostedtoolcache/CodeQL
           df -h /
 
+      # The source trees are submodules, fetched shallow (depth 1).
       - uses: actions/checkout@v7
+        with:
+          submodules: true
 
       - uses: docker/setup-buildx-action@v4
 
@@ -124,6 +127,7 @@ jobs:
       contents: write
       actions: read
     uses: ./.github/workflows/release-page.yml
+    secrets: inherit
     with:
       tag: ${{ github.ref_name }}
       programs_run: ${{ github.run_id }}

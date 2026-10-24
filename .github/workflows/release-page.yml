@@ -1,7 +1,10 @@
 # Creates or updates the GitHub release page of a tag: notes from
 # .github/scripts/release-notes.sh (what is in the line, the source trees,
 # the image tags on ghcr.io and Docker Hub, the tests) and the test
-# programs of the image build as assets.
+# programs of the image build as assets. Tags the source trees of the
+# release in the forks (cegcc-<tag>, .github/scripts/tag-forks.sh) with
+# the secret FORKS_TOKEN (contents: write on palian-tech/gcc,
+# binutils-gdb, mingwrt and w32api).
 #
 # Called by gcc16-release.yml (v16.*) and image.yml (v9.*, on
 # releases/gcc-9) after the image is published. Run by hand
@@ -79,6 +82,16 @@ jobs:
           [ ! -d programs ] || progs=programs
           bash tools/.github/scripts/release-notes.sh "$TAG" src "$run" "$progs" extra.md > notes.md
           cat notes.md
+
+      - name: Tag the source trees in the forks
+        env:
+          GH_TOKEN: ${{ secrets.FORKS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::No FORKS_TOKEN: tag the forks by hand (.github/scripts/tag-forks.sh $TAG <checkout of $TAG>)"
+            exit 0
+          fi
+          bash tools/.github/scripts/tag-forks.sh "$TAG" src
 
       - name: Create or update the release
         run: |

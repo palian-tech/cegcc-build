@@ -81,26 +81,32 @@ the Microsoft compiler's ``/Qsh4`` (``docs/sh4-abi.md``), in the next
 Building from source
 ====================
 
-GCC 16.2 (``releases/gcc-16``): the ``Dockerfile`` fetches the source
-trees (``palian-tech/gcc``, ``binutils-gdb``, ``mingwrt``, ``w32api``) at
-the commits pinned in its ``ARG`` lines (``GCC_COMMIT``,
-``BINUTILS_COMMIT``, ``MINGW_COMMIT``, ``W32API_COMMIT``) and builds both
-targets with ``build_cf.sh``::
+The source trees (``palian-tech/gcc``, ``binutils-gdb``, ``mingwrt``,
+``w32api``) are submodules on both lines, pinned to the commits a release
+builds from; ``.gitmodules`` names the fork branch of each line
+(``ce/gcc-16.2.0``, ``ce/binutils-2.43.1``, ``ce/mingwrt-16``, ``ce/w32api``
+on ``releases/gcc-16``; ``ce/gcc-9.3.0``, ``ce/binutils-2.34``,
+``ce/mingwrt-9``, ``ce/w32api`` on ``releases/gcc-9``)::
 
- docker build --network host -t cegcc:16 .                  # the image
+ git clone --recurse-submodules --shallow-submodules \
+     -b releases/gcc-16 https://github.com/palian-tech/cegcc-build
+ cd cegcc-build
+ docker build --network host -t cegcc .                     # the image
  docker build --network host --target programs \
      --output type=local,dest=out .                          # tests, test EXEs
 
-GCC 9.3 (``releases/gcc-9``, its own ``Dockerfile``): the trees are
-submodules::
+or without Docker, as the 16.2 ``Dockerfile`` does it::
 
- git clone -b releases/gcc-9 https://github.com/palian-tech/cegcc-build
- cd cegcc-build
- git submodule update --init
+ export GCC_THREADS=no BINUTILS_FLAGS="--disable-gdb --disable-gdbserver --disable-sim"
  ./build_cf.sh /where/to/install arm-mingw32ce
  ./build_cf.sh /where/to/install sh4-mingw32ce
 
-or ``docker build --network host -t cegcc .`` there.
+Use ``-b releases/gcc-9`` for the 9.3 line (there plain
+``./build_cf.sh /where/to/install TARGET``).
+
+Each release tag ``vX`` also tags the commits it builds from in the four
+forks as ``cegcc-vX`` (``.github/scripts/tag-forks.sh``, run by the
+release workflow with the secret ``FORKS_TOKEN``).
 
 Tests
 =====
