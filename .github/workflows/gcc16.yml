@@ -1,4 +1,4 @@
-# CeGCC on newer GCC (docs/gcc16): builds the toolchains of the Dockerfile
+# CeGCC 16.2: builds the toolchains of the Dockerfile
 # and the test program tests/gcc16/cetest.cpp, and uploads the test
 # program EXEs as the workflow artifact cetest-<job name> (with
 # SHA256SUMS). Nothing is published to a registry.
@@ -19,7 +19,6 @@ on:
       - 'Dockerfile'
       - 'tests/gcc16/**'
       - 'tests/sh4/**'
-      - 'docs/sh4/**'
       - 'build_cf.sh'
       - '.github/workflows/gcc16.yml'
       - '.github/workflows/gcc16-build.yml'

@@ -1,6 +1,7 @@
 /* ABI points not covered by msvc-sh4-abi-reference.txt.  The Microsoft
    SH-4 compiler's output for this file is
-   docs/sh4/msvc-sh4-abi-open-questions.txt; run-abi-test.sh uses it.  */
+   tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt; run-abi-test.sh
+   uses it.  */
 
 typedef struct { char a, b, c; } S3;
 typedef struct { int a; short b; } S6;	/* 8 bytes with padding */

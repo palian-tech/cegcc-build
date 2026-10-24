@@ -5,7 +5,7 @@
    the Microsoft /Qsh4 convention.  This test takes the thunks out of the
    installed libcoredll.a and points their import pointers at the
    Microsoft compiler's own /Qsh4 code (calldbl, fl, from
-   docs/sh4/msvc-sh4-abi-*.txt) or at fpu_callee (fpu-rt.s), then runs
+   tests/sh4/abi/ref/msvc-sh4-abi-*.txt) or at fpu_callee (fpu-rt.s), then runs
    under qemu-sh4.  Built with -m4-nofpu like any sh4-mingw32ce code.  */
 
 typedef unsigned long long u64;

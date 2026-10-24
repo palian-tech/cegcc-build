@@ -2,7 +2,7 @@
 
 GCC for `sh4-mingw32ce` follows the calling convention of the Microsoft
 SH-4 compiler (eVC4 `clsh.exe`). The ground truth is
-[`msvc-sh4-abi-reference.txt`](msvc-sh4-abi-reference.txt). The
+[`msvc-sh4-abi-reference.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt). The
 implementation is the `TARGET_MSABI` code in `gcc/config/sh/` (sh.c, sh.md,
 mingw32ce.h) on the `sh4-mingw32ce` branch of `palian-tech/gcc`.
 
@@ -15,9 +15,9 @@ binutils and gcc, python3 and qemu-sh4.
    instruction for instruction (the literal pools and relocations stay at the
    same offsets). The re-assembled code is the real MSVC code, not a
    re-implementation. The script uses
-   [`msvc-sh4-abi-reference.txt`](msvc-sh4-abi-reference.txt) and both
+   [`msvc-sh4-abi-reference.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt) and both
    sections of
-   [`msvc-sh4-abi-open-questions.txt`](msvc-sh4-abi-open-questions.txt):
+   [`msvc-sh4-abi-open-questions.txt`](../tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt):
    `/Qsh4 /O2`, plus `calldbl` from the build without `/Qsh4`.
 2. `harness.c` is compiled by sh4-mingw32ce-gcc and linked with that code.
    It calls the MSVC functions (GCC → MSVC) and defines the functions the
@@ -80,7 +80,7 @@ libgcc's 64-bit division also ends up calling `__divlu`. `LIBGCC_SPEC` links
 
 `-m4-single` follows the FPU convention of the Microsoft compiler with
 `/Qsh4`. The ground truth is
-[`msvc-sh4-fpu-cases.txt`](msvc-sh4-fpu-cases.txt), the `/Qsh4 /O2` code
+[`msvc-sh4-fpu-cases.txt`](../tests/sh4/abi/ref/msvc-sh4-fpu-cases.txt), the `/Qsh4 /O2` code
 of `tests/sh4/abi/fpu-cases.c`. Integer arguments, structs and results
 that are not `float` or `double` follow the rules above unchanged.
 
@@ -129,13 +129,13 @@ coredll.dll of SH-4 Windows CE 5.0 is built with `/Qsh4`. Its
 floating-point functions (`sqrt`, `pow`, `_ecvt`, `strtod`, ...) therefore
 take and return `float`/`double` in FPU registers, while `-m4-nofpu` code
 passes them in integer registers. Without a conversion they read garbage:
-before Gate 3b, `snprintf("%5.2f", 3.14159)` printed ` 0.00` on the device,
+before the thunks, `snprintf("%5.2f", 3.14159)` printed ` 0.00` on the device,
 because mingwex's `snprintf` gets its digits from coredll's `_ecvt`/`_fcvt`.
 The 9.3 toolchain had the same problem up to `v9.3.0-ce.2`.
 
 The `/Qsh4` convention, from `fl`, `callfl`
-([reference](msvc-sh4-abi-reference.txt)) and `calldbl`
-([open questions](msvc-sh4-abi-open-questions.txt), section 1), with the FPU
+([reference](../tests/sh4/abi/ref/msvc-sh4-abi-reference.txt)) and `calldbl`
+([open questions](../tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt), section 1), with the FPU
 words decoded by hand:
 
 | Rule | Evidence |
@@ -173,7 +173,7 @@ restores `FPSCR`.
   missing import keeps an EXE from loading without a message.
   `tests/gcc16/runtime-imports.sh` checks that the runtime libraries
   import only functions of the CE 5.0 SDK's coredll
-  (`tests/gcc16/coredll/ce5-sdk-sh4.txt`); `tests/gcc16/build.sh` checks
+  (`tests/sh4/coredll/ce5-sdk-sh4.txt`); `tests/gcc16/build.sh` checks
   cetest's imports against the SDK list and a reference device's list.
   On 9.3, `tests/sh4/prog/build.sh` checks its test programs' coredll imports
   against the CE 5.0 SDK's list (`tests/sh4/coredll/ce5-sdk-sh4.txt`) and

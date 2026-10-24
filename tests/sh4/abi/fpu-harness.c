@@ -1,10 +1,10 @@
 /* Runtime ABI test of -m4-single for sh4-mingw32ce: the FPU calling
    convention of the Microsoft SH-4 compiler with /Qsh4.
 
-   The functions of docs/sh4/msvc-sh4-fpu-cases.txt (fpu-cases.c compiled
-   with clsh /Qsh4 /O2) are re-assembled by msvc2gas.py and linked with
-   this file, compiled by sh4-mingw32ce-gcc -m4-single.  Calls go both
-   ways:
+   The functions of tests/sh4/abi/ref/msvc-sh4-fpu-cases.txt (fpu-cases.c
+   compiled with clsh /Qsh4 /O2) are re-assembled by msvc2gas.py and
+   linked with this file, compiled by sh4-mingw32ce-gcc -m4-single.
+   Calls go both ways:
 
    - GCC -> MSVC: this file calls take_*, keep_*, d2i, ... and checks
      their results.

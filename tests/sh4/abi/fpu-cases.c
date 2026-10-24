@@ -1,9 +1,9 @@
 /* Floating-point calling convention of the Microsoft SH-4 compiler with
-   /Qsh4 (Gate 5, docs/gcc16/SPEC.md).  What fl, callfl and calldbl
-   already show is in docs/sh4/ABI.md; this file asks the rest.
+   /Qsh4.  What fl, callfl and calldbl already show is in
+   docs/sh4-abi.md; this file asks the rest.
 
    Compile:  clsh /Qsh4 /O2 /c fpu-cases.c   and disassemble with the FPU
-   instructions decoded, like docs/sh4/msvc-sh4-abi-open-questions.txt.
+   instructions decoded, like tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt.
 
    Each question has a caller (call_*), which passes distinct constants so
    that each value can be found in a register or stack slot, and a callee

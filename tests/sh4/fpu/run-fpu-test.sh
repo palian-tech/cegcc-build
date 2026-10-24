@@ -11,16 +11,16 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ABI="$HERE/../abi"
-DOCS="$HERE/../../../docs/sh4"
+REF="$HERE/../abi/ref"
 OUT=${1:-$(mktemp -d)}
 T=${TOOL_PREFIX:-sh4-mingw32ce-}
 CC=${T}gcc
 mkdir -p "$OUT/thunks"
 
 python3 -I "$ABI/msvc2gas.py" --suffix _fpu \
-    "$DOCS/msvc-sh4-abi-open-questions.txt" "$OUT/calldbl.s" _calldbl
+    "$REF/msvc-sh4-abi-open-questions.txt" "$OUT/calldbl.s" _calldbl
 python3 -I "$ABI/msvc2gas.py" --suffix _fpu \
-    "$DOCS/msvc-sh4-abi-reference.txt" "$OUT/fl.s" _fl
+    "$REF/msvc-sh4-abi-reference.txt" "$OUT/fl.s" _fl
 for f in calldbl fl; do ${T}as "$OUT/$f.s" -o "$OUT/$f.o"; done
 ${T}as "$ABI/rt.s" -o "$OUT/rt.o"
 ${T}as "$HERE/fpu-rt.s" -o "$OUT/fpu-rt.o"

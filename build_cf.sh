@@ -97,7 +97,7 @@ if [[ "$TARGET" = "arm-mingw32ce" || "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+="--disable-__cxa_atexit"
 fi
 # sh4-mingw32ce: GCC 16 has the multilibs -m4-nofpu (default) and
-# -m4-single (the FPU convention of Microsoft's /Qsh4, docs/sh4/ABI.md).
+# -m4-single (the FPU convention of Microsoft's /Qsh4, docs/sh4-abi.md).
 if [[ "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+=" --enable-multilib"
 else
@@ -154,7 +154,7 @@ cd ..
 
 # sh4-mingw32ce: w32api installs its own libcoredll.a over mingw's. Give it
 # mingw's thunks for coredll's floating-point functions too
-# (mingw/coredll_fpu.sh, docs/sh4/ABI.md).
+# (mingw/coredll_fpu.sh, docs/sh4-abi.md).
 if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; then
     for lib in libcoredll.a libcoredll6.a; do
         CC=${TARGET}-gcc AR=${TARGET}-ar NM=${TARGET}-nm OBJCOPY=${TARGET}-objcopy \

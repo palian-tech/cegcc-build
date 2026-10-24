@@ -1,5 +1,5 @@
 # coredll exports of a reference CE 6/7 ARM device (2207 names), for the
-# test program import check (tests/sh4/prog/build.sh), not a toolchain
+# cetest import check (tests/gcc16/build.sh), not a toolchain
 # restriction. Device lists are OEM-trimmed: this one lacks 67 names of the
 # CE 5.0 ARMV4I SDK list and adds 615.
 ??0exception@std@@QAA@ABV01@@Z
