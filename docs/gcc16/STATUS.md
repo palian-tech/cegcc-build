@@ -11,7 +11,7 @@ Specification: [SPEC.md](SPEC.md).
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
 | 4 — release `v16.2.0-ce.1` | accepted (2026-10-24): device run of the combined image's programs ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628)), SH-4 and ARM: C++20 `DONE 16/16 xfail=1 skip=3`, C++23 `DONE 17/17 xfail=1 skip=2`; merged into `gcc16` and `master`, tag by the owner |
-| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | accepted (2026-10-24): `-m4-single` with the `/Qsh4` convention, multilib, FPU ABI test under qemu with 6 mutation controls; device run (step f) of both modes without an FPU ABI failure; merged ([PR #6](https://github.com/palian-tech/cegcc-build/pull/6)). Follow-up: `%g` trailing zeros in mingwex, waits for the device run |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | accepted (2026-10-24): `-m4-single` with the `/Qsh4` convention, multilib, FPU ABI test under qemu with 6 mutation controls; device run (step f) of both modes without an FPU ABI failure; merged ([PR #6](https://github.com/palian-tech/cegcc-build/pull/6)). Follow-up: `%g` trailing zeros in mingwex fixed, device run passes ([PR #10](https://github.com/palian-tech/cegcc-build/pull/10)) |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
 
@@ -255,8 +255,12 @@ FPU ABI issue; Gate 5 accepted, PR #6 merged, `ce-16.2.0-fpu` and
   `ecvt()` against 33 cases (`%g`, `%#g`, `%e`, `%G`, widths, zero, `-0`).
 * cetest: the check is split into `printf %f %e %g` (with more `%g`/`%#g`
   cases) and `strtod, wcstod`, so a format failure does not hide the
-  parsing checks. Expected on the device: no FAIL, C++20 17/17, C++23
-  18/18.
+  parsing checks.
+* Device run (owner, 2026-10-24) of [run 40098583615](https://github.com/palian-tech/cegcc-build/actions/runs/40098583615):
+  SH-4 `-m4-nofpu` and `-m4-single` C++20 18/18, C++23 19/19; ARM C++20
+  18/18. `%g` and `strtod, wcstod` pass; only the expected
+  `thread_local` XFAIL. Accepted, merged
+  ([PR #10](https://github.com/palian-tech/cegcc-build/pull/10)).
 
 ## Gate 0 findings (short)
 
