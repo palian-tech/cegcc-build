@@ -231,5 +231,7 @@ Gate 3b).
   takes its digits from `ecvt()`, which pads them with zeros, and `%g`
   printed them (`2.5` as `2.50000`). mingwrt `84e7e0a` (the same commit
   as `ce-16` `5947475`) strips the padding; `fpcheck` has a new check
-  `snprintf %g` (`2.5|0|0.0001|2.50000` for `%g|%g|%g|%#g`). Waits for
-  the device run.
+  `snprintf %g` (`2.5|0|0.0001|2.50000` for `%g|%g|%g|%#g`). Device
+  run (owner, 2026-10-24) of [run 40098656295](https://github.com/palian-tech/cegcc-build/actions/runs/40098656295):
+  `fpcheck` 10/10 on SH-4 and ARM, no FAIL. Accepted, merged
+  ([PR #11](https://github.com/palian-tech/cegcc-build/pull/11)).
