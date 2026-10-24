@@ -132,8 +132,13 @@ tools on ``PATH`` (``python3`` and ``qemu-sh4`` for the SH-4 ones):
 Known limitations
 =================
 
-* No threads (``--disable-threads``): ``std::thread`` and ``std::mutex``
-  are missing and ``thread_local`` has one copy for all threads.
+* Threads (``--enable-threads=win32``) use only coredll functions of
+  Windows CE 5.0. Destructors of ``thread_local`` objects run when a
+  ``std::thread`` ends and, for the main thread, at ``exit``; a thread
+  started with ``CreateThread`` does not run them. ``std::timed_mutex``
+  is built from a condition variable. ``std::chrono::steady_clock`` and
+  timed waits count milliseconds of ``GetTickCount``; ``system_clock``
+  is the system time advanced by ``GetTickCount`` between its seconds.
 * Debug info in linked images is not usable yet (SH gas has no
   ``.secrel32``).
 * Exceptions are SJLJ and the runtime is linked statically, so an

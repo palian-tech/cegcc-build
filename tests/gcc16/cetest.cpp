@@ -766,10 +766,16 @@ Result std_condition_variable()
         t.join();
     EXPECT(woken == 3);
 
-    // A timed wait that nobody signals times out.
+    // A timed wait that nobody signals times out, after 50 ms (not a
+    // second: GetSystemTime on SH-4 CE 5.0 only counts seconds).
     std::unique_lock<std::mutex> lock(m);
+    auto t0 = std::chrono::steady_clock::now();
     EXPECT(cv.wait_for(lock, std::chrono::milliseconds(50)) ==
            std::cv_status::timeout);
+    auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count();
+    if (waited < 50 || waited >= 500)
+        return "wait_for(50ms) took " + std::to_string(waited) + " ms";
     return {};
 }
 
@@ -889,6 +895,37 @@ Result std_thread_local()
     return {};
 }
 #endif
+
+// std::chrono's clocks step in milliseconds (libgcc's clock-wince.c on
+// GetTickCount), also where GetSystemTime only counts seconds.
+Result chrono_clocks()
+{
+    using namespace std::chrono;
+    auto s0 = steady_clock::now();
+    auto w0 = system_clock::now();
+    Sleep(50);
+    auto s = duration_cast<milliseconds>(steady_clock::now() - s0).count();
+    auto w = duration_cast<milliseconds>(system_clock::now() - w0).count();
+    if (s < 40 || s >= 500)
+        return "steady_clock moved " + std::to_string(s) +
+               " ms in Sleep(50)";
+    if (w < 40 || w >= 500)
+        return "system_clock moved " + std::to_string(w) +
+               " ms in Sleep(50)";
+    // system_clock is the system time (to within a second).
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+    FILETIME ft;
+    EXPECT(SystemTimeToFileTime(&st, &ft));
+    long long sys = ((long long)ft.dwHighDateTime << 32 | ft.dwLowDateTime) /
+                        10000000 - 11644473600LL;
+    long long now = duration_cast<seconds>(
+        system_clock::now().time_since_epoch()).count();
+    if (now < sys - 1 || now > sys + 1)
+        return "system_clock " + std::to_string(now) + " s, GetSystemTime " +
+               std::to_string(sys) + " s";
+    return {};
+}
 
 // ---------------------------------------------------------- C library
 
@@ -1123,6 +1160,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
     skip("exception across a DLL",
          "runtime linked statically, no shared libgcc/libstdc++");
     run("thread_local in the main thread", thread_local_main);
+    run("std::chrono clocks in milliseconds", chrono_clocks);
 #if defined(_GLIBCXX_HAS_GTHREADS)
     run("thread_local with CreateThread", thread_local_createthread);
     run("std::thread join, detach", std_thread_join);
