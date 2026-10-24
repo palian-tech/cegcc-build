@@ -12,7 +12,7 @@ name: gcc16
 
 on:
   push:
-    branches: [gcc16, 'claude/**']
+    branches: [gcc16]
     paths:
       - 'gcc16/**'
       - 'tests/gcc16/**'
