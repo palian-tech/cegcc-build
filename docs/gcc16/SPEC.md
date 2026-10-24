@@ -159,13 +159,16 @@ Decided by the owner (Gate 0 review):
 
 ## Build layout
 
-`gcc16/Dockerfile` builds one target from source trees given as
-repository + commit build arguments (defaults: Gate 1 trees) with this
-repository's `build_cf.sh` (`GCC_THREADS=no` → `--disable-threads`), then
-the test program. Workflow `.github/workflows/gcc16.yml` runs it per
-target and uploads `cetest-<target>` (EXEs + `SHA256SUMS`). The 9.3
-`Dockerfile` and `image.yml` are unchanged except that `image.yml` no
-longer runs for pull requests into `gcc16`.
+`gcc16/Dockerfile` builds the targets in `TARGETS` (default: both) into
+one prefix from source trees given as repository + commit build arguments
+(defaults: the CeGCC 16.2 trees) with this repository's `build_cf.sh`
+(`GCC_THREADS=no` → `--disable-threads`), then the test program. Workflow
+`.github/workflows/gcc16.yml` runs it per target and uploads
+`cetest-<job>` (EXEs + `SHA256SUMS`); `gcc16-release.yml` builds the image
+with both targets and, for a `v16.*` tag, pushes it to ghcr.io and Docker
+Hub (`:latest` stays with 9.3). The 9.3 `Dockerfile` is unchanged;
+`image.yml` on this branch no longer runs for pull requests into `gcc16`
+or for `v16.*` tags.
 
 ## Gates
 

@@ -8,11 +8,12 @@ on:
       name:
         type: string
         required: true
-      target:
+      targets:
+        description: TARGETS build arg, one or more targets
         type: string
         required: true
       trees:
-        description: build args that pin the source trees (empty = Dockerfile defaults)
+        description: build args that pin other source trees (empty = Dockerfile defaults, the CeGCC 16.2 trees)
         type: string
         default: ""
 
@@ -31,20 +32,20 @@ jobs:
             /opt/hostedtoolcache/CodeQL
           df -h /
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Cached per stage and target, so a test program change does not
       # rebuild the toolchain.
       - name: Build the toolchain and the test program
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: gcc16/Dockerfile
           target: programs
           build-args: |
-            TARGET=${{ inputs.target }}
+            TARGETS=${{ inputs.targets }}
             ${{ inputs.trees }}
           outputs: type=local,dest=out
           cache-from: type=gha,scope=gcc16-${{ inputs.name }}
@@ -53,7 +54,7 @@ jobs:
       - name: Test programs
         run: ls -l out && cat out/SHA256SUMS
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cetest-${{ inputs.name }}
           path: out/

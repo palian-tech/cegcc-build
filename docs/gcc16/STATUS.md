@@ -9,8 +9,8 @@ Specification: [SPEC.md](SPEC.md).
 | 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
-| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | in progress: [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) into `sh4-mingw32ce` (mingwrt branch `sh4-mingw32ce-fpu`, `db06d03`); waiting for CI, then a device run of `fpcheck-sh4-mingw32ce.exe` |
-| 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
+| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
+| 4 — release `v16.2.0-ce.1` | in progress: one image with both targets (`gcc16-release.yml`), README, actions on Node 24 |
 | 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
@@ -31,13 +31,18 @@ Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
 | Tree | Branch | Commit | Content |
 |---|---|---|---|
 | `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
-| `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix (`a817d8b8ee`, used by `arm-gcc16`) + SH-4 weak/linkonce fix (used by `sh4-gcc16`) |
-| `palian-tech/mingwrt` | `ce-16` | `149c99770d` | salman `7c35691` + our `0e274ec` + `struct timespec` (`72d79b48e5`, used by `arm-gcc16`) + SH-4 coredll FPU thunks (used by `sh4-gcc16`) |
+| `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix + SH-4 weak/linkonce fix |
+| `palian-tech/mingwrt` | `ce-16` | `149c99770d` | salman `7c35691` + our `0e274ec` + `struct timespec` + SH-4 coredll FPU thunks |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
-Build: `.github/workflows/gcc16.yml`, one job per tree set (`trees`
-build args pin the commits), `gcc16/Dockerfile`.
+Build: `gcc16/Dockerfile`, whose defaults pin the commits above and build
+both targets into one prefix (`TARGETS`). `.github/workflows/gcc16.yml`
+builds one target per job; `gcc16-release.yml` builds the image with both
+and publishes it for a `v16.*` tag. Since Gate 4 both targets use the same
+trees: the binutils and mingwrt commits that only `sh4-gcc16` used change
+SH-4 code only (`bfd/coff-sh.c`; mingwrt's thunks are built for
+`sh4-mingw32ce` only).
 
 ## Gate 1 (2026-10-23)
 

@@ -25,31 +25,52 @@ Building from source::
  ./build_cf.sh /where/to/install arm-mingw32ce
  ./build_cf.sh /where/to/install sh4-mingw32ce
 
-Docker image (arm-mingw32ce and sh4-mingw32ce)
-==============================================
+Docker images (arm-mingw32ce and sh4-mingw32ce)
+================================================
 
-The ``sh4-mingw32ce`` branch publishes an image with both Windows CE
-targets in ``/opt/cegcc`` (on ``PATH``):
+Both Windows CE targets are in ``/opt/cegcc`` (on ``PATH``) of every
+image. The images are published on ghcr.io as
+``ghcr.io/palian-tech/cegcc`` and on Docker Hub as ``paliantech/cegcc``:
 
-* ``ghcr.io/palian-tech/cegcc:edge`` -- every push to ``sh4-mingw32ce``
-* ``ghcr.io/palian-tech/cegcc:v9.3.0-ce.N`` and ``:latest`` -- release tags
+========================  ===================================================
+Tag                       Content
+========================  ===================================================
+``v16.2.0-ce.1``          GCC 16.2, binutils 2.43.1 (branch ``gcc16``,
+                          ``docs/gcc16``). C++20 and C++23 for both targets;
+                          SH-4 calls into coredll's floating-point functions
+                          through thunks (``docs/sh4/ABI.md``). No threads
+                          (``--disable-threads``); SH-4 floating point in
+                          software (``-m4-nofpu``); debug info in linked
+                          images not usable yet
+``v9.3.0-ce.3``           GCC 9.3, binutils 2.34 (branch ``sh4-mingw32ce``):
+                          SH-4 calls into coredll's floating-point functions
+                          through thunks, so ``printf`` ``%f`` and coredll
+                          math work on SH-4
+``v9.3.0-ce.2``           as ``v9.3.0-ce.1``, also on Docker Hub
+``v9.3.0-ce.1``           GCC 9.3, binutils 2.34, first release with
+                          ``sh4-mingw32ce``
+``latest``                the newest ``v9.3.0-ce.N``
+``edge``                  every push to ``sh4-mingw32ce`` (ghcr.io only)
+========================  ===================================================
 
-Pull it and compile for each target::
+Pull one and compile for each target::
 
- docker pull ghcr.io/palian-tech/cegcc:edge
- docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:edge \
-     sh4-mingw32ce-gcc -O2 -D_WIN32_WCE=0x500 hello.c -o hello-sh4.exe
- docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:edge \
-     arm-mingw32ce-gcc -O2 -D_WIN32_WCE=0x500 hello.c -o hello-arm.exe
+ docker pull ghcr.io/palian-tech/cegcc:v16.2.0-ce.1
+ docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:v16.2.0-ce.1 \
+     sh4-mingw32ce-g++ -std=c++20 -O2 -D_WIN32_WCE=0x500 hello.cpp -o hello-sh4.exe
+ docker run --rm -v "$PWD":/w -w /w ghcr.io/palian-tech/cegcc:v16.2.0-ce.1 \
+     arm-mingw32ce-g++ -std=c++20 -O2 -D_WIN32_WCE=0x500 hello.cpp -o hello-arm.exe
 
 ``sh4-mingw32ce`` produces Windows CE 5.00 SH-4 images (PE machine 0x01A6,
 image base 0x10000) following the calling convention of the Microsoft SH-4
 compiler; floating point is software only (``-m4-nofpu``). Link extra
 libraries as usual, e.g. ``-lcommctrl`` or ``-lceddk``.
 
-To build the image yourself::
+To build an image yourself::
 
  git submodule update --init
- docker build --network host -t cegcc .
+ docker build --network host -t cegcc .                    # 9.3
+ docker build --network host -f gcc16/Dockerfile -t cegcc:16 .   # 16.2
 
-See ``docs/sh4/STATUS.md`` for the build steps, tests and current status.
+See ``docs/sh4/STATUS.md`` (9.3) and ``docs/gcc16/STATUS.md`` (16.2) for
+the build steps, tests and current status.
