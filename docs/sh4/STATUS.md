@@ -215,7 +215,9 @@ Gate 3b).
 * `build_cf.sh`: applies them to the `libcoredll.a` that w32api installs
   over mingw's.
 * Tests: `tests/sh4/fpu/run-fpu-test.sh` (image test stage);
-  `tests/sh4/prog/fpcheck.c` (message box PASS/FAIL: coredll `sqrt`,
+  `tests/sh4/prog/fpcheck.c` (one `PASS`/`FAIL` line per check and
+  `DONE n/m`, to `OutputDebugStringW` and `fpcheck.txt` next to the EXE,
+  as cetest: coredll `sqrt`,
   `floor`, `pow`, `fmod`, `ldexp`, `frexp`, `modf`, `_ecvt` called
   directly, `snprintf` `%f`/`%e`); `tests/sh4/prog/build.sh` checks coredll
   imports against `tests/sh4/coredll`.

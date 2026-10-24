@@ -50,7 +50,9 @@ check() {
     && grep -q '^MinorSubsystemVersion[[:space:]]*0$' <<<"$p" \
     || fail "$exe: subsystem version"
   local got
-  got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort | tr '\n' ' ')
+  # Unique names: libceoldname.a is a second COREDLL import library, so an
+  # EXE can have two COREDLL.dll entries.
+  got=$(sed -n 's/^[[:space:]]*DLL Name: //p' <<<"$p" | sort -u | tr '\n' ' ')
   [[ $got = "$dlls " ]] || fail "$exe: imports '$got', want '$dlls '"
   # Every coredll function imported must be in the CE SDK's coredll and in
   # the reference device's: a missing import keeps the EXE from loading
