@@ -10,8 +10,8 @@ Specification: [SPEC.md](SPEC.md).
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
-| 4 — release `v16.2.0-ce.1` | built, stopped for the owner: both-target image dry run green ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628), artifact `cegcc16-test-programs`); then merge into `gcc16`, fast-forward `master`, tag `v16.2.0-ce.1` on `master` (owner pushes tags) |
-| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
+| 4 — release `v16.2.0-ce.1` | accepted (2026-10-24): device run of the combined image's programs ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628)), SH-4 and ARM: C++20 `DONE 16/16 xfail=1 skip=3`, C++23 `DONE 17/17 xfail=1 skip=2`; merged into `gcc16` and `master`, tag by the owner |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | next; cost estimate first |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
 
