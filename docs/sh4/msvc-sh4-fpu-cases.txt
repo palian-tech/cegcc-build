@@ -1,0 +1,1589 @@
+# Reference: fpu-cases.c compiled by the Microsoft SH-4 compiler (clsh.exe 12.20.9518,
+# eVC4 SP4, run under Wine): clsh /Qsh4 /O2 /c. Disassembly with capstone 5.0.7
+# (CS_MODE_SH4 | CS_MODE_SHFPU, FPU instructions decoded); '.byte' pairs are literal
+# pool words.
+# Note: the disassembler does not track FPSCR. Instructions whose meaning depends on
+# FPSCR.PR (fadd, fsub, fmul, fdiv, fneg, fabs, fsqrt, fcmp, float, ftrc, fcnvsd/fcnvds)
+# are printed with frN names; after the code sets PR=1 (sts fpscr / or 0x80000 /
+# lds fpscr) read them as drN (double) operations. fmov is printed as 32-bit (SZ=0).
+
+## fpu-cases.c
+/* Floating-point calling convention of the Microsoft SH-4 compiler with
+   /Qsh4 (Gate 5, docs/gcc16/SPEC.md).  What fl, callfl and calldbl
+   already show is in docs/sh4/ABI.md; this file asks the rest.
+
+   Compile:  clsh /Qsh4 /O2 /c fpu-cases.c   and disassemble with the FPU
+   instructions decoded, like docs/sh4/msvc-sh4-abi-open-questions.txt.
+
+   Each question has a caller (call_*), which passes distinct constants so
+   that each value can be found in a register or stack slot, and a callee
+   (take_*), which shows where it reads its arguments.  The constants are
+   exact in float: 1.5f, 2.5f, ... and 1.25, 2.25, ...  */
+
+#include <stdarg.h>
+
+typedef struct { float x, y; } F2;
+typedef struct { float x, y, z, w; } F4;
+typedef struct { double d; } D1;
+typedef struct { float f; int i; } FI;
+
+extern float  ext_f (float a);
+extern float  ext_ff (float a, float b);
+extern float  ext_if (int a, float b);
+extern int    ext_fi (float a, int b);
+extern double ext_id (int a, double b);
+extern double ext_fd (float a, double b);
+extern double ext_ddd (double a, double b, double c);
+extern float  ext_f8 (float a, float b, float c, float d,
+		      float e, float f, float g, float h);
+extern float  ext_f10 (float a, float b, float c, float d, float e,
+		       float f, float g, float h, float i, float j);
+extern double ext_d5 (double a, double b, double c, double d, double e);
+extern double ext_mix (int a, float b, int c, double d, float e, int f);
+extern float  ext_iiiif (int a, int b, int c, int d, float e);
+extern double ext_ld (__int64 a, double b);
+extern float  ext_lf (__int64 a, float b);
+extern int    extv (const char *fmt, ...);
+extern F2     ext_F2 (F2 a);
+extern F4     ext_F4 (F4 a);
+extern D1     ext_D1 (D1 a);
+extern FI     ext_FI (FI a);
+extern void   ext_void (void);
+extern float  (*ext_pf) (float a, double b);
+
+/* 1. First float argument and float result.  */
+float call_f (void) { return ext_f (1.5f) + 1.0f; }
+float take_f (float a) { return a * 2.0f; }
+
+/* 2. Two floats.  */
+float call_ff (void) { return ext_ff (1.5f, 2.5f); }
+float take_ff (float a, float b) { return a - b; }
+
+/* 3. int, then float: fr4 or fr5?  */
+float call_if (void) { return ext_if (7, 2.5f); }
+float take_if (int a, float b) { return (float) a + b; }
+
+/* 4. float, then int: r4 or r5?  */
+int call_fi (void) { return ext_fi (1.5f, 7); }
+int take_fi (float a, int b) { return (int) a + b; }
+
+/* 5. int, then double: dr4 or dr6, and which int slots?  */
+double call_id (void) { return ext_id (7, 2.25); }
+double take_id (int a, double b) { return (double) a * b; }
+
+/* 6. float, then double.  */
+double call_fd (void) { return ext_fd (1.5f, 2.25); }
+double take_fd (float a, double b) { return (double) a - b; }
+
+/* 7. Three doubles: the third beyond the four int slots.  */
+double call_ddd (void) { return ext_ddd (1.25, 2.25, 3.25); }
+double take_ddd (double a, double b, double c) { return a * b - c; }
+
+/* 8. Eight and ten floats: FPU registers fr4..fr11, then the stack?  */
+float call_f8 (void)
+{
+  return ext_f8 (1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f);
+}
+float take_f8 (float a, float b, float c, float d,
+	       float e, float f, float g, float h)
+{
+  return a - b + c - d + e - f + g - h;
+}
+float call_f10 (void)
+{
+  return ext_f10 (1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f, 9.5f,
+		  10.5f);
+}
+float take_f10 (float a, float b, float c, float d, float e,
+		float f, float g, float h, float i, float j)
+{
+  return a - b + c - d + e - f + g - h + i - j;
+}
+
+/* 9. Five doubles.  */
+double call_d5 (void) { return ext_d5 (1.25, 2.25, 3.25, 4.25, 5.25); }
+double take_d5 (double a, double b, double c, double d, double e)
+{
+  return a - b + c - d + e;
+}
+
+/* 10. Mixed int, float, double.  */
+double call_mix (void) { return ext_mix (7, 1.5f, 8, 2.25, 2.5f, 9); }
+double take_mix (int a, float b, int c, double d, float e, int f)
+{
+  return a + b + c + d + e + f;
+}
+
+/* 11. A float after four ints (stack).  */
+float call_iiiif (void) { return ext_iiiif (1, 2, 3, 4, 2.5f); }
+float take_iiiif (int a, int b, int c, int d, float e)
+{
+  return (float) (a + b + c + d) + e;
+}
+
+/* 12. __int64 with double and float.  */
+double call_ld (void) { return ext_ld ((__int64) 7 << 33, 2.25); }
+double take_ld (__int64 a, double b) { return (double) a + b; }
+float call_lf (void) { return ext_lf ((__int64) 7 << 33, 2.5f); }
+float take_lf (__int64 a, float b) { return (float) a + b; }
+
+/* 13. Varargs: float (promoted to double) and double, with ints around
+   them, from the caller and from a callee using va_arg.  */
+int call_v (void) { return extv ("x", 7, 1.5f, 8, 2.25, 9); }
+int call_v2 (void) { return extv ("x", 1.25, 2.25, 3.25); }
+double take_v (const char *fmt, ...)
+{
+  va_list ap;
+  int a;
+  double b, c;
+
+  va_start (ap, fmt);
+  a = va_arg (ap, int);
+  b = va_arg (ap, double);
+  c = va_arg (ap, double);
+  va_end (ap);
+  return a + b + c;
+}
+
+/* 14. Structs of floats and doubles by value and as results.  */
+float call_F2 (void) { F2 s; s.x = 1.5f; s.y = 2.5f; return ext_F2 (s).y; }
+F2 take_F2 (F2 a) { F2 r; r.x = a.y; r.y = a.x + 1.0f; return r; }
+float call_F4 (void)
+{
+  F4 s; s.x = 1.5f; s.y = 2.5f; s.z = 3.5f; s.w = 4.5f;
+  return ext_F4 (s).w;
+}
+F4 take_F4 (F4 a) { F4 r; r.x = a.w; r.y = a.z; r.z = a.y; r.w = a.x; return r; }
+double call_D1 (void) { D1 s; s.d = 2.25; return ext_D1 (s).d; }
+D1 take_D1 (D1 a) { D1 r; r.d = a.d * 2.0; return r; }
+int call_FI (void) { FI s; s.f = 1.5f; s.i = 7; return ext_FI (s).i; }
+FI take_FI (FI a) { FI r; r.f = (float) a.i; r.i = (int) a.f; return r; }
+
+/* 15. Callee-saved FPU registers: values live across a call.  */
+double keep_d (double a, double b)
+{
+  double x = a * b, y = a + b, z = a - b, w = a / b;
+  ext_void ();
+  return x + y * z - w;
+}
+float keep_f (float a, float b)
+{
+  float v0 = a + b, v1 = a - b, v2 = a * b, v3 = a / b;
+  float v4 = v0 * v1, v5 = v1 * v2, v6 = v2 * v3, v7 = v3 * v0;
+  float v8 = v4 + v5, v9 = v6 + v7, v10 = v4 - v6, v11 = v5 - v7;
+  ext_void ();
+  return v0 + v1 * v2 - v3 + v4 * v5 - v6 + v7 * v8 - v9 + v10 * v11;
+}
+
+/* 16. FPSCR across a call when the caller computes in double and in
+   float around it.  */
+float mixed_prec (float a, double b)
+{
+  double d = (double) a * b;
+  float f = a * a;
+  ext_void ();
+  return (float) d + f;
+}
+
+/* 17. Through a pointer.  */
+float call_ptr (void) { return ext_pf (1.5f, 2.25); }
+
+/* 18. Conversions (inline or helper calls?).  */
+int d2i (double d) { return (int) d; }
+unsigned d2u (double d) { return (unsigned) d; }
+__int64 d2l (double d) { return (__int64) d; }
+double i2d (int i) { return (double) i; }
+double u2d (unsigned u) { return (double) u; }
+double l2d (__int64 l) { return (double) l; }
+float d2f (double d) { return (float) d; }
+double f2d (float f) { return (double) f; }
+
+/* 19. Comparisons.  */
+int dlt (double a, double b) { return a < b; }
+int fge (float a, float b) { return a >= b; }
+int dne (double a, double b) { return a != b; }
+
+## fpu-cases.obj (/Qsh4 /O2)
+machine 0x1a6
+
+== _call_f
+  0000 sts.l   pr,@-r15
+  0002 add     #-16,r15
+  0004 mova    0x18,r0
+  0006 mov.l   0x1c,r3
+  0008 jsr     @r3
+  000a fmov    @r0,fr4
+  000c fldi1   fr3
+  000e fadd    fr3,fr0
+  0010 add     #16,r15
+  0012 lds.l   @r15+,pr
+  0014 rts     
+  0016 nop     
+  0018 .byte   0x00, 0x00
+  001a .byte   0xc0, 0x3f
+  001c .byte   0x00, 0x00
+  001e .byte   0x00, 0x00
+relocs: {'0x1c': '_ext_f'}
+
+== _take_f
+  0000 mova    0xc,r0
+  0002 fmov    @r0,fr3
+  0004 fmul    fr3,fr4
+  0006 rts     
+  0008 fmov    fr4,fr0
+  000a nop     
+  000c .byte   0x00, 0x00
+  000e .byte   0x00, 0x40
+relocs: {}
+
+== _call_ff
+  0000 mova    0xc,r0
+  0002 mov.l   0x10,r3
+  0004 fmov    @r0,fr5
+  0006 mova    0x14,r0
+  0008 jmp     @r3
+  000a fmov    @r0,fr4
+  000c .byte   0x00, 0x00
+  000e .byte   0x20, 0x40
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x00, 0x00
+  0014 .byte   0x00, 0x00
+  0016 .byte   0xc0, 0x3f
+relocs: {'0x10': '_ext_ff'}
+
+== _take_ff
+  0000 fsub    fr5,fr4
+  0002 rts     
+  0004 fmov    fr4,fr0
+  0006 nop     
+relocs: {}
+
+== _call_if
+  0000 mova    0xc,r0
+  0002 mov.l   0x10,r3
+  0004 fmov    @r0,fr4
+  0006 jmp     @r3
+  0008 mov     #7,r4
+  000a nop     
+  000c .byte   0x00, 0x00
+  000e .byte   0x20, 0x40
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x00, 0x00
+relocs: {'0x10': '_ext_if'}
+
+== _take_if
+  0000 lds     r4,fpul
+  0002 float   fpul,fr0
+  0004 rts     
+  0006 fadd    fr4,fr0
+relocs: {}
+
+== _call_fi
+  0000 mova    0xc,r0
+  0002 mov.l   0x10,r3
+  0004 fmov    @r0,fr4
+  0006 jmp     @r3
+  0008 mov     #7,r5
+  000a nop     
+  000c .byte   0x00, 0x00
+  000e .byte   0xc0, 0x3f
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x00, 0x00
+relocs: {'0x10': '_ext_fi'}
+
+== _take_fi
+  0000 ftrc    fr4,fpul
+  0002 sts     fpul,r0
+  0004 rts     
+  0006 add     r5,r0
+relocs: {}
+
+== _call_id
+  0000 mova    0xc,r0
+  0002 fldi0   fr5
+  0004 fmov    @r0,fr4
+  0006 mov.l   0x10,r3
+  0008 jmp     @r3
+  000a mov     #7,r4
+  000c .byte   0x00, 0x00
+  000e .byte   0x02, 0x40
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x00, 0x00
+relocs: {'0x10': '_ext_id'}
+
+== _take_id
+  0000 fmov    fr5,fr7
+  0002 fmov    fr4,fr6
+  0004 mov     #8,r2
+  0006 sts     fpscr,r3
+  0008 shll16  r2
+  000a lds     r4,fpul
+  000c or      r2,r3
+  000e lds     r3,fpscr
+  0010 not     r2,r2
+  0012 float   fpul,fr0
+  0014 fmov    fr1,fr5
+  0016 fmov    fr0,fr4
+  0018 fmul    fr6,fr4
+  001a sts     fpscr,r1
+  001c fmov    fr5,fr1
+  001e and     r2,r1
+  0020 fmov    fr4,fr0
+  0022 rts     
+  0024 lds     r1,fpscr
+  0026 nop     
+relocs: {}
+
+== _call_fd
+  0000 mova    0x10,r0
+  0002 fmov    @r0,fr6
+  0004 mova    0x14,r0
+  0006 fmov    @r0,fr4
+  0008 mov.l   0x18,r3
+  000a jmp     @r3
+  000c fldi0   fr7
+  000e nop     
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x02, 0x40
+  0014 .byte   0x00, 0x00
+  0016 .byte   0xc0, 0x3f
+  0018 .byte   0x00, 0x00
+  001a .byte   0x00, 0x00
+relocs: {'0x18': '_ext_fd'}
+
+== _take_fd
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 flds    fr4,fpul
+  0008 or      r2,r3
+  000a lds     r3,fpscr
+  000c not     r2,r2
+  000e .byte   0xad, 0xf0
+  0010 fmov    fr1,fr5
+  0012 fmov    fr0,fr4
+  0014 fsub    fr6,fr4
+  0016 sts     fpscr,r1
+  0018 fmov    fr5,fr1
+  001a and     r2,r1
+  001c fmov    fr4,fr0
+  001e rts     
+  0020 lds     r1,fpscr
+  0022 nop     
+relocs: {}
+
+== _call_ddd
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mova    0x24,r0
+  0006 mov.l   0x28,r3
+  0008 fmov    @r0,fr8
+  000a mova    0x2c,r0
+  000c fmov    @r0,fr6
+  000e mova    0x30,r0
+  0010 fmov    @r0,fr4
+  0012 fldi0   fr9
+  0014 fldi0   fr7
+  0016 jsr     @r3
+  0018 fldi0   fr5
+  001a add     #24,r15
+  001c lds.l   @r15+,pr
+  001e rts     
+  0020 nop     
+  0022 nop     
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x0a, 0x40
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+  002c .byte   0x00, 0x00
+  002e .byte   0x02, 0x40
+  0030 .byte   0x00, 0x00
+  0032 .byte   0xf4, 0x3f
+relocs: {'0x28': '_ext_ddd'}
+
+== _take_ddd
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 or      r2,r3
+  0008 lds     r3,fpscr
+  000a not     r2,r2
+  000c fmul    fr6,fr4
+  000e fmov    fr9,fr7
+  0010 fmov    fr8,fr6
+  0012 fsub    fr6,fr4
+  0014 sts     fpscr,r1
+  0016 fmov    fr5,fr1
+  0018 and     r2,r1
+  001a fmov    fr4,fr0
+  001c rts     
+  001e lds     r1,fpscr
+relocs: {}
+
+== _call_f8
+  0000 sts.l   pr,@-r15
+  0002 add     #-32,r15
+  0004 mova    0x30,r0
+  0006 mov.l   0x34,r3
+  0008 fmov    @r0,fr11
+  000a mova    0x38,r0
+  000c fmov    @r0,fr10
+  000e mova    0x3c,r0
+  0010 fmov    @r0,fr9
+  0012 mova    0x40,r0
+  0014 fmov    @r0,fr8
+  0016 mova    0x44,r0
+  0018 fmov    @r0,fr7
+  001a mova    0x48,r0
+  001c fmov    @r0,fr6
+  001e mova    0x4c,r0
+  0020 fmov    @r0,fr5
+  0022 mova    0x50,r0
+  0024 jsr     @r3
+  0026 fmov    @r0,fr4
+  0028 add     #32,r15
+  002a lds.l   @r15+,pr
+  002c rts     
+  002e nop     
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x08, 0x41
+  0034 .byte   0x00, 0x00
+  0036 .byte   0x00, 0x00
+  0038 .byte   0x00, 0x00
+  003a .byte   0xf0, 0x40
+  003c .byte   0x00, 0x00
+  003e .byte   0xd0, 0x40
+  0040 .byte   0x00, 0x00
+  0042 .byte   0xb0, 0x40
+  0044 .byte   0x00, 0x00
+  0046 .byte   0x90, 0x40
+  0048 .byte   0x00, 0x00
+  004a .byte   0x60, 0x40
+  004c .byte   0x00, 0x00
+  004e .byte   0x20, 0x40
+  0050 .byte   0x00, 0x00
+  0052 .byte   0xc0, 0x3f
+relocs: {'0x34': '_ext_f8'}
+
+== _take_f8
+  0000 fsub    fr5,fr4
+  0002 fadd    fr6,fr4
+  0004 fsub    fr7,fr4
+  0006 fadd    fr8,fr4
+  0008 fsub    fr9,fr4
+  000a fadd    fr10,fr4
+  000c fsub    fr11,fr4
+  000e rts     
+  0010 fmov    fr4,fr0
+  0012 nop     
+relocs: {}
+
+== _call_f10
+  0000 sts.l   pr,@-r15
+  0002 add     #-40,r15
+  0004 mov.l   0x38,r3
+  0006 mova    0x3c,r0
+  0008 mov.l   0x40,r2
+  000a mov.l   r3,@(36,r15)
+  000c mov.l   r2,@(32,r15)
+  000e fmov    @r0,fr11
+  0010 mova    0x44,r0
+  0012 fmov    @r0,fr10
+  0014 mova    0x48,r0
+  0016 fmov    @r0,fr9
+  0018 mova    0x4c,r0
+  001a fmov    @r0,fr8
+  001c mova    0x50,r0
+  001e fmov    @r0,fr7
+  0020 mova    0x54,r0
+  0022 fmov    @r0,fr6
+  0024 mova    0x58,r0
+  0026 fmov    @r0,fr5
+  0028 mova    0x5c,r0
+  002a mov.l   0x60,r1
+  002c jsr     @r1
+  002e fmov    @r0,fr4
+  0030 add     #40,r15
+  0032 lds.l   @r15+,pr
+  0034 rts     
+  0036 nop     
+  0038 .byte   0x00, 0x00
+  003a .byte   0x28, 0x41
+  003c .byte   0x00, 0x00
+  003e .byte   0x08, 0x41
+  0040 .byte   0x00, 0x00
+  0042 .byte   0x18, 0x41
+  0044 .byte   0x00, 0x00
+  0046 .byte   0xf0, 0x40
+  0048 .byte   0x00, 0x00
+  004a .byte   0xd0, 0x40
+  004c .byte   0x00, 0x00
+  004e .byte   0xb0, 0x40
+  0050 .byte   0x00, 0x00
+  0052 .byte   0x90, 0x40
+  0054 .byte   0x00, 0x00
+  0056 .byte   0x60, 0x40
+  0058 .byte   0x00, 0x00
+  005a .byte   0x20, 0x40
+  005c .byte   0x00, 0x00
+  005e .byte   0xc0, 0x3f
+  0060 .byte   0x00, 0x00
+  0062 .byte   0x00, 0x00
+relocs: {'0x60': '_ext_f10'}
+
+== _take_f10
+  0000 fsub    fr5,fr4
+  0002 mov     #32,r0
+  0004 fadd    fr6,fr4
+  0006 fsub    fr7,fr4
+  0008 fadd    fr8,fr4
+  000a fsub    fr9,fr4
+  000c fadd    fr10,fr4
+  000e fsub    fr11,fr4
+  0010 fmov    @(r0,r15),fr3
+  0012 mov     #36,r0
+  0014 fadd    fr3,fr4
+  0016 fmov    @(r0,r15),fr2
+  0018 fsub    fr2,fr4
+  001a rts     
+  001c fmov    fr4,fr0
+  001e nop     
+relocs: {}
+
+== _call_d5
+  0000 sts.l   pr,@-r15
+  0002 add     #-40,r15
+  0004 mov.l   0x34,r2
+  0006 mova    0x38,r0
+  0008 fldi0   fr11
+  000a mov     r2,r3
+  000c shll16  r3
+  000e mov.l   r3,@(32,r15)
+  0010 mov.l   r2,@(36,r15)
+  0012 fmov    @r0,fr10
+  0014 mova    0x3c,r0
+  0016 fmov    @r0,fr8
+  0018 mova    0x40,r0
+  001a fmov    @r0,fr6
+  001c mova    0x44,r0
+  001e fmov    @r0,fr4
+  0020 mov.l   0x48,r2
+  0022 fldi0   fr9
+  0024 fldi0   fr7
+  0026 jsr     @r2
+  0028 fldi0   fr5
+  002a add     #40,r15
+  002c lds.l   @r15+,pr
+  002e rts     
+  0030 nop     
+  0032 nop     
+  0034 .byte   0x00, 0x00
+  0036 .byte   0x15, 0x40
+  0038 .byte   0x00, 0x00
+  003a .byte   0x11, 0x40
+  003c .byte   0x00, 0x00
+  003e .byte   0x0a, 0x40
+  0040 .byte   0x00, 0x00
+  0042 .byte   0x02, 0x40
+  0044 .byte   0x00, 0x00
+  0046 .byte   0xf4, 0x3f
+  0048 .byte   0x00, 0x00
+  004a .byte   0x00, 0x00
+relocs: {'0x48': '_ext_d5'}
+
+== _take_d5
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 or      r2,r3
+  0008 lds     r3,fpscr
+  000a mov     #32,r0
+  000c not     r2,r2
+  000e fsub    fr6,fr4
+  0010 fmov    fr9,fr7
+  0012 fmov    fr8,fr6
+  0014 fadd    fr6,fr4
+  0016 fmov    fr11,fr7
+  0018 fmov    fr10,fr6
+  001a fsub    fr6,fr4
+  001c fmov    @(r0,r15),fr7
+  001e mov     #36,r0
+  0020 fmov    @(r0,r15),fr6
+  0022 fadd    fr6,fr4
+  0024 sts     fpscr,r1
+  0026 fmov    fr5,fr1
+  0028 and     r2,r1
+  002a fmov    fr4,fr0
+  002c rts     
+  002e lds     r1,fpscr
+relocs: {}
+
+== _call_mix
+  0000 sts.l   pr,@-r15
+  0002 add     #-28,r15
+  0004 mov     #9,r3
+  0006 mov.l   0x28,r2
+  0008 mova    0x2c,r0
+  000a mov.l   r3,@(24,r15)
+  000c fldi0   fr7
+  000e mov     #8,r6
+  0010 fmov    @r0,fr5
+  0012 mova    0x30,r0
+  0014 fmov    @r0,fr6
+  0016 mova    0x34,r0
+  0018 fmov    @r0,fr4
+  001a jsr     @r2
+  001c mov     #7,r4
+  001e add     #28,r15
+  0020 lds.l   @r15+,pr
+  0022 rts     
+  0024 nop     
+  0026 nop     
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+  002c .byte   0x00, 0x00
+  002e .byte   0x20, 0x40
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x02, 0x40
+  0034 .byte   0x00, 0x00
+  0036 .byte   0xc0, 0x3f
+relocs: {'0x28': '_ext_mix'}
+
+== _take_mix
+  0000 fmov    fr7,fr2
+  0002 fmov    fr6,fr3
+  0004 fmov    fr5,fr6
+  0006 lds     r4,fpul
+  0008 mov     #8,r2
+  000a float   fpul,fr1
+  000c lds     r6,fpul
+  000e shll16  r2
+  0010 mov.l   @(24,r15),r1
+  0012 float   fpul,fr0
+  0014 fadd    fr0,fr1
+  0016 fadd    fr4,fr1
+  0018 sts     fpscr,r3
+  001a flds    fr1,fpul
+  001c or      r2,r3
+  001e lds     r3,fpscr
+  0020 not     r2,r3
+  0022 .byte   0xad, 0xf0
+  0024 flds    fr6,fpul
+  0026 fmov    fr1,fr5
+  0028 fmov    fr0,fr4
+  002a .byte   0xad, 0xf0
+  002c fmov    fr1,fr7
+  002e fmov    fr0,fr6
+  0030 fadd    fr6,fr4
+  0032 lds     r1,fpul
+  0034 float   fpul,fr0
+  0036 fmov    fr1,fr7
+  0038 fmov    fr0,fr6
+  003a fadd    fr6,fr4
+  003c fmov    fr2,fr7
+  003e fmov    fr3,fr6
+  0040 fadd    fr6,fr4
+  0042 sts     fpscr,r2
+  0044 fmov    fr5,fr1
+  0046 and     r3,r2
+  0048 fmov    fr4,fr0
+  004a rts     
+  004c lds     r2,fpscr
+  004e nop     
+relocs: {}
+
+== _call_iiiif
+  0000 sts.l   pr,@-r15
+  0002 add     #-20,r15
+  0004 mova    0x1c,r0
+  0006 mov.l   0x20,r3
+  0008 fmov    @r0,fr4
+  000a mov     #4,r7
+  000c mov     #3,r6
+  000e mov     #2,r5
+  0010 jsr     @r3
+  0012 mov     #1,r4
+  0014 add     #20,r15
+  0016 lds.l   @r15+,pr
+  0018 rts     
+  001a nop     
+  001c .byte   0x00, 0x00
+  001e .byte   0x20, 0x40
+  0020 .byte   0x00, 0x00
+  0022 .byte   0x00, 0x00
+relocs: {'0x20': '_ext_iiiif'}
+
+== _take_iiiif
+  0000 add     r5,r4
+  0002 add     r6,r4
+  0004 add     r7,r4
+  0006 lds     r4,fpul
+  0008 float   fpul,fr0
+  000a rts     
+  000c fadd    fr4,fr0
+  000e nop     
+relocs: {}
+
+== _call_ld
+  0000 mova    0x10,r0
+  0002 fldi0   fr5
+  0004 fmov    @r0,fr4
+  0006 mov     #0,r4
+  0008 mov.l   0x14,r3
+  000a jmp     @r3
+  000c mov     #14,r5
+  000e nop     
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x02, 0x40
+  0014 .byte   0x00, 0x00
+  0016 .byte   0x00, 0x00
+relocs: {'0x14': '_ext_ld'}
+
+== _take_ld
+  0000 mov.l   r6,@(8,r15)
+  0002 mov.l   r7,@(12,r15)
+  0004 fmov    fr12,@-r15
+  0006 fmov    fr13,@-r15
+  0008 sts.l   pr,@-r15
+  000a add     #-16,r15
+  000c mov.l   r4,@(28,r15)
+  000e mov.l   r5,@(32,r15)
+  0010 fmov    fr5,fr12
+  0012 fmov    fr4,fr13
+  0014 mov     #28,r4
+  0016 mov.l   0x48,r3
+  0018 jsr     @r3
+  001a add     r15,r4
+  001c mov     #8,r2
+  001e sts     fpscr,r1
+  0020 shll16  r2
+  0022 fmov    fr1,fr5
+  0024 or      r2,r1
+  0026 fmov    fr0,fr4
+  0028 fmov    fr12,fr7
+  002a not     r2,r3
+  002c fmov    fr13,fr6
+  002e lds     r1,fpscr
+  0030 fadd    fr6,fr4
+  0032 sts     fpscr,r2
+  0034 fmov    fr5,fr1
+  0036 and     r3,r2
+  0038 fmov    fr4,fr0
+  003a lds     r2,fpscr
+  003c add     #16,r15
+  003e lds.l   @r15+,pr
+  0040 fmov    @r15+,fr13
+  0042 rts     
+  0044 fmov    @r15+,fr12
+  0046 nop     
+  0048 .byte   0x00, 0x00
+  004a .byte   0x00, 0x00
+relocs: {'0x48': '__i64tod'}
+
+== _call_lf
+  0000 mova    0xc,r0
+  0002 mov.l   0x10,r3
+  0004 fmov    @r0,fr4
+  0006 mov     #0,r4
+  0008 jmp     @r3
+  000a mov     #14,r5
+  000c .byte   0x00, 0x00
+  000e .byte   0x20, 0x40
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x00, 0x00
+relocs: {'0x10': '_ext_lf'}
+
+== _take_lf
+  0000 mov.l   r6,@(8,r15)
+  0002 mov.l   r7,@(12,r15)
+  0004 fmov    fr12,@-r15
+  0006 sts.l   pr,@-r15
+  0008 add     #-16,r15
+  000a mov.l   r4,@(24,r15)
+  000c mov.l   r5,@(28,r15)
+  000e fmov    fr4,fr12
+  0010 mov     #24,r4
+  0012 mov.l   0x24,r3
+  0014 jsr     @r3
+  0016 add     r15,r4
+  0018 fadd    fr12,fr0
+  001a add     #16,r15
+  001c lds.l   @r15+,pr
+  001e rts     
+  0020 fmov    @r15+,fr12
+  0022 nop     
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x00, 0x00
+relocs: {'0x24': '__i64tos'}
+
+== _call_v
+  0000 sts.l   pr,@-r15
+  0002 add     #-32,r15
+  0004 mov.l   0x2c,r2
+  0006 mov     #9,r3
+  0008 mov.l   r3,@(28,r15)
+  000a mov     #8,r3
+  000c mov     r2,r1
+  000e shll16  r1
+  0010 mov.l   0x30,r7
+  0012 mov     #7,r5
+  0014 mov.l   r1,@(20,r15)
+  0016 mov.l   r2,@(24,r15)
+  0018 mov     r7,r6
+  001a mov.l   0x34,r4
+  001c shll16  r6
+  001e mov.l   0x38,r2
+  0020 jsr     @r2
+  0022 mov.l   r3,@(16,r15)
+  0024 add     #32,r15
+  0026 lds.l   @r15+,pr
+  0028 rts     
+  002a nop     
+  002c .byte   0x00, 0x00
+  002e .byte   0x02, 0x40
+  0030 .byte   0x00, 0x00
+  0032 .byte   0xf8, 0x3f
+  0034 .byte   0x00, 0x00
+  0036 .byte   0x00, 0x00
+  0038 .byte   0x00, 0x00
+  003a .byte   0x00, 0x00
+relocs: {'0x34': '??_C@_01KOI@x?$AA@', '0x38': '_extv'}
+
+== _call_v2
+  0000 sts.l   pr,@-r15
+  0002 add     #-28,r15
+  0004 mov.l   0x2c,r2
+  0006 mov.l   0x30,r6
+  0008 mov     r2,r3
+  000a shll16  r3
+  000c mov.l   r3,@(20,r15)
+  000e mov     r6,r5
+  0010 mov.l   r2,@(24,r15)
+  0012 shll16  r5
+  0014 mov.l   0x34,r2
+  0016 mov.l   0x38,r4
+  0018 mov     r2,r7
+  001a mov.l   r2,@(16,r15)
+  001c mov.l   0x3c,r2
+  001e jsr     @r2
+  0020 shll16  r7
+  0022 add     #28,r15
+  0024 lds.l   @r15+,pr
+  0026 rts     
+  0028 nop     
+  002a nop     
+  002c .byte   0x00, 0x00
+  002e .byte   0x0a, 0x40
+  0030 .byte   0x00, 0x00
+  0032 .byte   0xf4, 0x3f
+  0034 .byte   0x00, 0x00
+  0036 .byte   0x02, 0x40
+  0038 .byte   0x00, 0x00
+  003a .byte   0x00, 0x00
+  003c .byte   0x00, 0x00
+  003e .byte   0x00, 0x00
+relocs: {'0x38': '??_C@_01KOI@x?$AA@', '0x3c': '_extv'}
+
+== _take_v
+  0000 mov.l   r5,@(4,r15)
+  0002 mov.l   r6,@(8,r15)
+  0004 mov.l   r7,@(12,r15)
+  0006 mov.l   r4,@r15
+  0008 mov     #8,r2
+  000a sts     fpscr,r1
+  000c shll16  r2
+  000e mov.l   @(4,r15),r3
+  0010 or      r2,r1
+  0012 lds     r3,fpul
+  0014 mov     #16,r0
+  0016 lds     r1,fpscr
+  0018 not     r2,r3
+  001a fmov    @(r0,r15),fr7
+  001c mov     #20,r0
+  001e fmov    @(r0,r15),fr6
+  0020 mov     #8,r0
+  0022 float   fpul,fr0
+  0024 fmov    fr1,fr5
+  0026 fmov    fr0,fr4
+  0028 fadd    fr6,fr4
+  002a fmov    @(r0,r15),fr7
+  002c mov     #12,r0
+  002e fmov    @(r0,r15),fr6
+  0030 fadd    fr6,fr4
+  0032 sts     fpscr,r2
+  0034 fmov    fr5,fr1
+  0036 and     r3,r2
+  0038 fmov    fr4,fr0
+  003a rts     
+  003c lds     r2,fpscr
+  003e nop     
+relocs: {}
+
+== _call_F2
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mova    0x30,r0
+  0006 mov.l   0x34,r3
+  0008 fmov    @r0,fr3
+  000a mov     #16,r0
+  000c mov     #16,r4
+  000e fmov    fr3,@(r0,r15)
+  0010 mova    0x38,r0
+  0012 add     r15,r4
+  0014 fmov    @r0,fr2
+  0016 mov     #20,r0
+  0018 fmov    fr2,@(r0,r15)
+  001a mov.l   @(16,r15),r5
+  001c jsr     @r3
+  001e mov.l   @(20,r15),r6
+  0020 mov     r0,r2
+  0022 add     #4,r2
+  0024 fmov    @r2,fr0
+  0026 add     #24,r15
+  0028 lds.l   @r15+,pr
+  002a rts     
+  002c nop     
+  002e nop     
+  0030 .byte   0x00, 0x00
+  0032 .byte   0xc0, 0x3f
+  0034 .byte   0x00, 0x00
+  0036 .byte   0x00, 0x00
+  0038 .byte   0x00, 0x00
+  003a .byte   0x20, 0x40
+relocs: {'0x34': '_ext_F2'}
+
+== _take_F2
+  0000 add     #-8,r15
+  0002 mov.l   r5,@(12,r15)
+  0004 mov.l   r6,@(16,r15)
+  0006 mov     r6,r3
+  0008 mov     #12,r0
+  000a mov.l   r3,@r15
+  000c mov     r15,r2
+  000e fldi1   fr3
+  0010 fmov    @(r0,r15),fr2
+  0012 mov     #4,r0
+  0014 fadd    fr3,fr2
+  0016 fmov    fr2,@(r0,r15)
+  0018 mov.l   @r2+,r0
+  001a mov.l   @r2,r3
+  001c mov.l   r0,@r4
+  001e mov     r4,r0
+  0020 mov.l   r3,@(4,r4)
+  0022 rts     
+  0024 add     #8,r15
+  0026 nop     
+relocs: {}
+
+== _call_F4
+  0000 sts.l   pr,@-r15
+  0002 add     #-36,r15
+  0004 mova    0x44,r0
+  0006 mov.l   0x48,r2
+  0008 fmov    @r0,fr3
+  000a mov     #20,r0
+  000c mov     #20,r4
+  000e fmov    fr3,@(r0,r15)
+  0010 mova    0x4c,r0
+  0012 fmov    @r0,fr2
+  0014 mov     #24,r0
+  0016 add     r15,r4
+  0018 fmov    fr2,@(r0,r15)
+  001a mova    0x50,r0
+  001c fmov    @r0,fr1
+  001e mov     #28,r0
+  0020 fmov    fr1,@(r0,r15)
+  0022 mova    0x54,r0
+  0024 fmov    @r0,fr0
+  0026 mov     #32,r0
+  0028 fmov    fr0,@(r0,r15)
+  002a mov.l   @(32,r15),r3
+  002c mov.l   @(20,r15),r5
+  002e mov.l   @(24,r15),r6
+  0030 mov.l   @(28,r15),r7
+  0032 jsr     @r2
+  0034 mov.l   r3,@(16,r15)
+  0036 mov     r0,r2
+  0038 add     #12,r2
+  003a fmov    @r2,fr0
+  003c add     #36,r15
+  003e lds.l   @r15+,pr
+  0040 rts     
+  0042 nop     
+  0044 .byte   0x00, 0x00
+  0046 .byte   0xc0, 0x3f
+  0048 .byte   0x00, 0x00
+  004a .byte   0x00, 0x00
+  004c .byte   0x00, 0x00
+  004e .byte   0x20, 0x40
+  0050 .byte   0x00, 0x00
+  0052 .byte   0x60, 0x40
+  0054 .byte   0x00, 0x00
+  0056 .byte   0x90, 0x40
+relocs: {'0x48': '_ext_F4'}
+
+== _take_F4
+  0000 add     #-16,r15
+  0002 mov.l   r5,@(20,r15)
+  0004 mov.l   r6,@(24,r15)
+  0006 mov.l   r7,@(28,r15)
+  0008 mov.l   @(32,r15),r3
+  000a mov.l   r3,@r15
+  000c mov.l   @(28,r15),r2
+  000e mov.l   r2,@(4,r15)
+  0010 mov     r15,r2
+  0012 mov.l   @(24,r15),r1
+  0014 mov.l   r1,@(8,r15)
+  0016 mov.l   @(20,r15),r3
+  0018 mov.l   r3,@(12,r15)
+  001a mov.l   @r2+,r0
+  001c mov.l   @r2+,r3
+  001e mov.l   r0,@r4
+  0020 mov.l   r3,@(4,r4)
+  0022 mov.l   @r2+,r0
+  0024 mov.l   @r2,r3
+  0026 mov.l   r0,@(8,r4)
+  0028 mov     r4,r0
+  002a mov.l   r3,@(12,r4)
+  002c rts     
+  002e add     #16,r15
+relocs: {}
+
+== _call_D1
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mov.l   0x24,r6
+  0006 mov     #16,r4
+  0008 mov.l   0x28,r3
+  000a add     r15,r4
+  000c mov     r6,r5
+  000e jsr     @r3
+  0010 shll16  r5
+  0012 mov     r0,r2
+  0014 mov     #4,r0
+  0016 fmov    @r2,fr1
+  0018 fmov    @(r0,r2),fr0
+  001a add     #24,r15
+  001c lds.l   @r15+,pr
+  001e rts     
+  0020 nop     
+  0022 nop     
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x02, 0x40
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+relocs: {'0x28': '_ext_D1'}
+
+== _take_D1
+  0000 mov.l   r5,@(4,r15)
+  0002 mov.l   r6,@(8,r15)
+  0004 mova    0x30,r0
+  0006 sts     fpscr,r3
+  0008 fmov    @r0,fr6
+  000a mov     #4,r0
+  000c mov     #8,r2
+  000e fmov    @(r0,r15),fr5
+  0010 shll16  r2
+  0012 fldi0   fr7
+  0014 mov     #8,r0
+  0016 or      r2,r3
+  0018 fmov    @(r0,r15),fr4
+  001a lds     r3,fpscr
+  001c not     r2,r2
+  001e mov     #4,r0
+  0020 fmul    fr6,fr4
+  0022 sts     fpscr,r1
+  0024 fmov    fr4,@(r0,r4)
+  0026 mov     r4,r0
+  0028 and     r2,r1
+  002a fmov    fr5,@r4
+  002c rts     
+  002e lds     r1,fpscr
+  0030 .byte   0x00, 0x00
+  0032 .byte   0x00, 0x40
+relocs: {}
+
+== _call_FI
+  0000 sts.l   pr,@-r15
+  0002 add     #-24,r15
+  0004 mova    0x24,r0
+  0006 mov.l   0x28,r3
+  0008 fmov    @r0,fr3
+  000a mov     #16,r0
+  000c mov     #16,r4
+  000e fmov    fr3,@(r0,r15)
+  0010 mov     #7,r6
+  0012 add     r15,r4
+  0014 jsr     @r3
+  0016 mov.l   @(16,r15),r5
+  0018 mov.l   @(4,r0),r0
+  001a add     #24,r15
+  001c lds.l   @r15+,pr
+  001e rts     
+  0020 nop     
+  0022 nop     
+  0024 .byte   0x00, 0x00
+  0026 .byte   0xc0, 0x3f
+  0028 .byte   0x00, 0x00
+  002a .byte   0x00, 0x00
+relocs: {'0x28': '_ext_FI'}
+
+== _take_FI
+  0000 add     #-8,r15
+  0002 mov.l   r5,@(12,r15)
+  0004 lds     r6,fpul
+  0006 mov     #12,r0
+  0008 float   fpul,fr3
+  000a mov     r15,r2
+  000c fmov    fr3,@r15
+  000e fmov    @(r0,r15),fr2
+  0010 ftrc    fr2,fpul
+  0012 sts     fpul,r3
+  0014 mov.l   r3,@(4,r15)
+  0016 mov.l   @r2+,r0
+  0018 mov.l   @r2,r3
+  001a mov.l   r0,@r4
+  001c mov     r4,r0
+  001e mov.l   r3,@(4,r4)
+  0020 rts     
+  0022 add     #8,r15
+relocs: {}
+
+== _keep_d
+  0000 fmov    fr12,@-r15
+  0002 fmov    fr13,@-r15
+  0004 fmov    fr14,@-r15
+  0006 fmov    fr15,@-r15
+  0008 sts.l   pr,@-r15
+  000a add     #-16,r15
+  000c fmov    fr5,fr12
+  000e fmov    fr4,fr13
+  0010 fmov    fr7,fr14
+  0012 fmov    fr6,fr15
+  0014 mov.l   0x8c,r3
+  0016 jsr     @r3
+  0018 nop     
+  001a sts     fpscr,r1
+  001c mov     #8,r2
+  001e shll16  r2
+  0020 fmov    fr14,fr7
+  0022 or      r2,r1
+  0024 fmov    fr15,fr6
+  0026 fmov    fr12,fr5
+  0028 not     r2,r3
+  002a fmov    fr13,fr4
+  002c lds     r1,fpscr
+  002e fsub    fr6,fr4
+  0030 fmov    fr5,fr3
+  0032 fmov    fr4,fr2
+  0034 fmov    fr12,fr5
+  0036 fmov    fr13,fr4
+  0038 fadd    fr6,fr4
+  003a fmov    fr5,fr7
+  003c fmov    fr4,fr6
+  003e fmov    fr3,fr5
+  0040 fmov    fr2,fr4
+  0042 fmul    fr6,fr4
+  0044 fmov    fr5,fr1
+  0046 fmov    fr4,fr0
+  0048 fmov    fr14,fr7
+  004a fmov    fr15,fr6
+  004c fmov    fr12,fr5
+  004e fmov    fr13,fr4
+  0050 fmul    fr6,fr4
+  0052 fmov    fr5,fr7
+  0054 fmov    fr4,fr6
+  0056 fmov    fr1,fr5
+  0058 fmov    fr0,fr4
+  005a fadd    fr6,fr4
+  005c fmov    fr5,fr3
+  005e fmov    fr4,fr2
+  0060 fmov    fr14,fr7
+  0062 fmov    fr15,fr6
+  0064 fmov    fr12,fr5
+  0066 fmov    fr13,fr4
+  0068 fdiv    fr6,fr4
+  006a fmov    fr5,fr7
+  006c fmov    fr4,fr6
+  006e fmov    fr3,fr5
+  0070 fmov    fr2,fr4
+  0072 fsub    fr6,fr4
+  0074 sts     fpscr,r2
+  0076 fmov    fr5,fr1
+  0078 and     r3,r2
+  007a fmov    fr4,fr0
+  007c lds     r2,fpscr
+  007e add     #16,r15
+  0080 lds.l   @r15+,pr
+  0082 fmov    @r15+,fr15
+  0084 fmov    @r15+,fr14
+  0086 fmov    @r15+,fr13
+  0088 rts     
+  008a fmov    @r15+,fr12
+  008c .byte   0x00, 0x00
+  008e .byte   0x00, 0x00
+relocs: {'0x8c': '_ext_void'}
+
+== _keep_f
+  0000 fmov    fr12,@-r15
+  0002 fmov    fr13,@-r15
+  0004 fmov    fr14,@-r15
+  0006 fmov    fr15,@-r15
+  0008 sts.l   pr,@-r15
+  000a add     #-24,r15
+  000c fmov    fr4,fr14
+  000e fadd    fr5,fr14
+  0010 mov     #16,r0
+  0012 mov.l   0x70,r3
+  0014 fmov    fr4,fr0
+  0016 fsub    fr5,fr0
+  0018 fmov    fr4,fr1
+  001a fmul    fr5,fr1
+  001c fdiv    fr5,fr4
+  001e fmov    fr4,fr3
+  0020 fmov    fr3,@(r0,r15)
+  0022 mov     #20,r0
+  0024 fmov    fr0,fr13
+  0026 fmul    fr14,fr13
+  0028 fmov    fr1,fr12
+  002a fmul    fr0,fr12
+  002c fmov    fr4,fr15
+  002e fmul    fr1,fr15
+  0030 fmul    fr14,fr4
+  0032 jsr     @r3
+  0034 fmov    fr4,@(r0,r15)
+  0036 fmov    fr12,fr0
+  0038 fadd    fr14,fr0
+  003a mov     #16,r0
+  003c fmov    @(r0,r15),fr2
+  003e mov     #20,r0
+  0040 fsub    fr2,fr0
+  0042 fmov    fr12,fr1
+  0044 fmul    fr13,fr1
+  0046 fadd    fr1,fr0
+  0048 fsub    fr15,fr0
+  004a fmov    fr12,fr3
+  004c fadd    fr13,fr3
+  004e fmov    @(r0,r15),fr1
+  0050 fmul    fr1,fr3
+  0052 fadd    fr3,fr0
+  0054 fmov    fr1,fr2
+  0056 fadd    fr15,fr2
+  0058 fsub    fr2,fr0
+  005a fsub    fr1,fr12
+  005c fsub    fr15,fr13
+  005e fmul    fr13,fr12
+  0060 fadd    fr12,fr0
+  0062 add     #24,r15
+  0064 lds.l   @r15+,pr
+  0066 fmov    @r15+,fr15
+  0068 fmov    @r15+,fr14
+  006a fmov    @r15+,fr13
+  006c rts     
+  006e fmov    @r15+,fr12
+  0070 .byte   0x00, 0x00
+  0072 .byte   0x00, 0x00
+relocs: {'0x70': '_ext_void'}
+
+== _mixed_prec
+  0000 fmov    fr12,@-r15
+  0002 fmov    fr13,@-r15
+  0004 fmov    fr14,@-r15
+  0006 sts.l   pr,@-r15
+  0008 add     #-16,r15
+  000a fmov    fr4,fr12
+  000c fmov    fr7,fr13
+  000e fmov    fr6,fr14
+  0010 mov.l   0x50,r3
+  0012 jsr     @r3
+  0014 nop     
+  0016 mov     #8,r2
+  0018 sts     fpscr,r1
+  001a shll16  r2
+  001c flds    fr12,fpul
+  001e or      r2,r1
+  0020 lds     r1,fpscr
+  0022 not     r2,r3
+  0024 .byte   0xad, 0xf0
+  0026 fmov    fr0,fr4
+  0028 fmov    fr1,fr5
+  002a fmov    fr13,fr7
+  002c fmov    fr14,fr6
+  002e fmul    fr6,fr4
+  0030 fmov    fr4,fr0
+  0032 fmov    fr5,fr1
+  0034 .byte   0xbd, 0xf0
+  0036 sts     fpscr,r2
+  0038 fmov    fr12,fr3
+  003a and     r3,r2
+  003c fsts    fpul,fr0
+  003e lds     r2,fpscr
+  0040 fmul    fr12,fr3
+  0042 fadd    fr3,fr0
+  0044 add     #16,r15
+  0046 lds.l   @r15+,pr
+  0048 fmov    @r15+,fr14
+  004a fmov    @r15+,fr13
+  004c rts     
+  004e fmov    @r15+,fr12
+  0050 .byte   0x00, 0x00
+  0052 .byte   0x00, 0x00
+relocs: {'0x50': '_ext_void'}
+
+== _call_ptr
+  0000 mova    0x10,r0
+  0002 mov.l   0x14,r2
+  0004 fmov    @r0,fr6
+  0006 mova    0x18,r0
+  0008 fmov    @r0,fr4
+  000a mov.l   @r2,r3
+  000c jmp     @r3
+  000e fldi0   fr7
+  0010 .byte   0x00, 0x00
+  0012 .byte   0x02, 0x40
+  0014 .byte   0x00, 0x00
+  0016 .byte   0x00, 0x00
+  0018 .byte   0x00, 0x00
+  001a .byte   0xc0, 0x3f
+relocs: {'0x14': '_ext_pf'}
+
+== _d2i
+  0000 fmov    fr5,fr1
+  0002 fmov    fr4,fr0
+  0004 mov     #8,r2
+  0006 sts     fpscr,r3
+  0008 shll16  r2
+  000a or      r2,r3
+  000c lds     r3,fpscr
+  000e not     r2,r2
+  0010 ftrc    fr0,fpul
+  0012 sts     fpscr,r1
+  0014 sts     fpul,r0
+  0016 and     r2,r1
+  0018 rts     
+  001a lds     r1,fpscr
+relocs: {}
+
+== _d2u
+  0000 fmov    fr5,fr1
+  0002 fmov    fr4,fr0
+  0004 mov     #8,r2
+  0006 sts     fpscr,r3
+  0008 shll16  r2
+  000a fldi0   fr11
+  000c or      r2,r3
+  000e lds     r3,fpscr
+  0010 mova    0x50,r0
+  0012 fmov    @r0,fr2
+  0014 fmov    fr11,fr3
+  0016 fcmp/gt fr0,fr2
+  0018 bf      0x2c
+  001a ftrc    fr0,fpul
+  001c not     r2,r2
+  001e sts     fpscr,r1
+  0020 sts     fpul,r3
+  0022 and     r2,r1
+  0024 mov     r3,r0
+  0026 lds     r1,fpscr
+  0028 rts     
+  002a nop     
+  002c mova    0x54,r0
+  002e fmov    fr11,fr5
+  0030 fmov    @r0,fr4
+  0032 fcmp/gt fr0,fr4
+  0034 bf/s    0x44
+  0036 mov     #0,r3
+  0038 fsub    fr2,fr0
+  003a ftrc    fr0,fpul
+  003c sts     fpul,r3
+  003e shll    r3
+  0040 sett    
+  0042 rotcr   r3
+  0044 sts     fpscr,r1
+  0046 not     r2,r2
+  0048 mov     r3,r0
+  004a and     r2,r1
+  004c rts     
+  004e lds     r1,fpscr
+  0050 .byte   0x00, 0x00
+  0052 .byte   0xe0, 0x41
+  0054 .byte   0x00, 0x00
+  0056 .byte   0xf0, 0x41
+relocs: {}
+
+== _d2l
+  0000 mov.l   r8,@-r15
+  0002 sts.l   pr,@-r15
+  0004 add     #-24,r15
+  0006 mov     r4,r8
+  0008 mov     #16,r4
+  000a mov.l   0x24,r3
+  000c jsr     @r3
+  000e add     r15,r4
+  0010 mov.l   @(16,r15),r2
+  0012 mov     r8,r0
+  0014 mov.l   @(20,r15),r1
+  0016 mov.l   r2,@r8
+  0018 mov.l   r1,@(4,r8)
+  001a add     #24,r15
+  001c lds.l   @r15+,pr
+  001e rts     
+  0020 mov.l   @r15+,r8
+  0022 nop     
+  0024 .byte   0x00, 0x00
+  0026 .byte   0x00, 0x00
+relocs: {'0x24': '__dtoi64'}
+
+== _i2d
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 lds     r4,fpul
+  0008 or      r2,r3
+  000a lds     r3,fpscr
+  000c not     r2,r2
+  000e sts     fpscr,r1
+  0010 float   fpul,fr0
+  0012 and     r2,r1
+  0014 rts     
+  0016 lds     r1,fpscr
+relocs: {}
+
+== _u2d
+  0000 mov     #8,r2
+  0002 sts     fpscr,r1
+  0004 shll16  r2
+  0006 fldi0   fr11
+  0008 or      r2,r1
+  000a cmp/pz  r4
+  000c bf/s    0x20
+  000e lds     r1,fpscr
+  0010 not     r2,r3
+  0012 sts     fpscr,r2
+  0014 lds     r4,fpul
+  0016 and     r3,r2
+  0018 float   fpul,fr0
+  001a lds     r2,fpscr
+  001c rts     
+  001e nop     
+  0020 mov     r4,r3
+  0022 shll    r3
+  0024 shlr    r3
+  0026 fmov    fr11,fr3
+  0028 lds     r3,fpul
+  002a mova    0x3c,r0
+  002c float   fpul,fr0
+  002e fmov    @r0,fr2
+  0030 not     r2,r3
+  0032 fadd    fr2,fr0
+  0034 sts     fpscr,r2
+  0036 and     r3,r2
+  0038 rts     
+  003a lds     r2,fpscr
+  003c .byte   0x00, 0x00
+  003e .byte   0xe0, 0x41
+relocs: {}
+
+== _l2d
+  0000 mov.l   r6,@(8,r15)
+  0002 mov.l   r7,@(12,r15)
+  0004 sts.l   pr,@-r15
+  0006 add     #-16,r15
+  0008 mov.l   r4,@(20,r15)
+  000a mov.l   r5,@(24,r15)
+  000c mov     #20,r4
+  000e mov.l   0x1c,r3
+  0010 jsr     @r3
+  0012 add     r15,r4
+  0014 add     #16,r15
+  0016 lds.l   @r15+,pr
+  0018 rts     
+  001a nop     
+  001c .byte   0x00, 0x00
+  001e .byte   0x00, 0x00
+relocs: {'0x1c': '__i64tod'}
+
+== _d2f
+  0000 fmov    fr5,fr1
+  0002 fmov    fr4,fr0
+  0004 mov     #8,r2
+  0006 sts     fpscr,r3
+  0008 shll16  r2
+  000a or      r2,r3
+  000c lds     r3,fpscr
+  000e not     r2,r2
+  0010 .byte   0xbd, 0xf0
+  0012 sts     fpscr,r1
+  0014 fsts    fpul,fr0
+  0016 and     r2,r1
+  0018 rts     
+  001a lds     r1,fpscr
+relocs: {}
+
+== _f2d
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 flds    fr4,fpul
+  0008 or      r2,r3
+  000a lds     r3,fpscr
+  000c not     r2,r2
+  000e .byte   0xad, 0xf0
+  0010 sts     fpscr,r1
+  0012 and     r2,r1
+  0014 rts     
+  0016 lds     r1,fpscr
+relocs: {}
+
+== _dlt
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 or      r2,r3
+  0008 lds     r3,fpscr
+  000a not     r2,r3
+  000c fcmp/gt fr4,fr6
+  000e sts     fpscr,r2
+  0010 and     r3,r2
+  0012 lds     r2,fpscr
+  0014 bt/s    0x1a
+  0016 mov     #1,r0
+  0018 mov     #0,r0
+  001a rts     
+  001c nop     
+  001e nop     
+relocs: {}
+
+== _fge
+  0000 fcmp/gt fr5,fr4
+  0002 movt    r3
+  0004 fcmp/eq fr4,fr5
+  0006 movt    r2
+  0008 or      r2,r3
+  000a tst     r3,r3
+  000c bf/s    0x12
+  000e mov     #1,r0
+  0010 mov     #0,r0
+  0012 rts     
+  0014 nop     
+  0016 nop     
+relocs: {}
+
+== _dne
+  0000 mov     #8,r2
+  0002 sts     fpscr,r3
+  0004 shll16  r2
+  0006 or      r2,r3
+  0008 lds     r3,fpscr
+  000a not     r2,r3
+  000c fcmp/eq fr6,fr4
+  000e sts     fpscr,r2
+  0010 and     r3,r2
+  0012 lds     r2,fpscr
+  0014 bf/s    0x1a
+  0016 mov     #1,r0
+  0018 mov     #0,r0
+  001a rts     
+  001c nop     
+  001e nop     
+relocs: {}
