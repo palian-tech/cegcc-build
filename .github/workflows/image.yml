@@ -2,7 +2,8 @@
 # runs the sh4 binutils and ABI tests, builds the test programs of
 # tests/sh4/prog for both targets and publishes:
 #   push to releases/gcc-9  ghcr.io/palian-tech/cegcc:gcc9-edge
-#   tag v9.*                ghcr.io/palian-tech/cegcc:<tag> and :gcc9
+#   tag v9.*                ghcr.io/palian-tech/cegcc:<tag> and :gcc9,
+#                           and the release page (release-page.yml)
 # Every tag is also pushed to docker.io/paliantech/cegcc. :latest and
 # :edge belong to the newest line (master, GCC 16.2).
 # The test programs are uploaded as the workflow artifact
@@ -67,8 +68,11 @@ jobs:
           path: out/
           if-no-files-found: error
 
+      # The description of the line, not the repository's description.
       - id: meta
         uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: |
             ${{ env.IMAGE }}
@@ -78,6 +82,12 @@ jobs:
             type=raw,value=gcc9-edge,enable=${{ github.ref == 'refs/heads/releases/gcc-9' }}
             type=ref,event=tag
             type=raw,value=gcc9,enable=${{ startsWith(github.ref, 'refs/tags/v9.') }}
+          labels: |
+            org.opencontainers.image.title=CeGCC 9.3
+            org.opencontainers.image.description=CeGCC 9.3: GCC 9.3.0 cross toolchains for Windows CE, arm-mingw32ce and sh4-mingw32ce
+          annotations: |
+            org.opencontainers.image.title=CeGCC 9.3
+            org.opencontainers.image.description=CeGCC 9.3: GCC 9.3.0 cross toolchains for Windows CE, arm-mingw32ce and sh4-mingw32ce
 
       - if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -99,4 +109,17 @@ jobs:
           push: ${{ github.event_name != 'pull_request' && steps.meta.outputs.tags != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
+
+  # The release page of a v9.* tag, with the test programs of this run.
+  release-page:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v9.')
+    permissions:
+      contents: write
+      actions: read
+    uses: ./.github/workflows/release-page.yml
+    with:
+      tag: ${{ github.ref_name }}
+      programs_run: ${{ github.run_id }}
