@@ -8,7 +8,7 @@ Specification: [SPEC.md](SPEC.md).
 | 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)) |
 | 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
-| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | early device run of `8ef7cde`: EXE did not load (`sqrtf` import, not in the CE 5.0 coredll); fixed, rebuilt; device run pending (owner) |
+| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | early device run of `8ef7cde`: EXE did not load (`sqrtf` import, not in the CE 5.0 coredll); fixed; artifact `cetest-sh4-gcc16` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)); device run pending (owner) |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | not started (after the 3b device run) |
 | 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
 | 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
