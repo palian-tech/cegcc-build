@@ -133,6 +133,17 @@ make $J
 make install
 cd ..
 
+# sh4-mingw32ce: w32api installs its own libcoredll.a over mingw's. Give it
+# mingw's thunks for coredll's floating-point functions too
+# (mingw/coredll_fpu.sh, docs/sh4/ABI.md).
+if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; then
+    for lib in libcoredll.a libcoredll6.a; do
+        CC=${TARGET}-gcc AR=${TARGET}-ar NM=${TARGET}-nm OBJCOPY=${TARGET}-objcopy \
+            sh "${SRCDIR}"/mingw/coredll_fpu.sh "${PREFIXDIR}/${TARGET}/lib/$lib" \
+            coredll "${SRCDIR}"/mingw
+    done
+fi
+
 
 # Continue building the rest of GCC as before.
 # The remaining components (like libstdc++) can now depend on all headers and libraries
