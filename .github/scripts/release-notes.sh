@@ -14,27 +14,46 @@ TAG=$1 SRC=$2 RUN=${3:-} PROGRAMS=${4:-} EXTRA=${5:-}
 IMAGE=ghcr.io/palian-tech/cegcc
 HUB=paliantech/cegcc
 
-# The 16.2 Dockerfile is at the root since the 9.3 line moved to its own
-# branch; tags up to v16.2.0-ce.1 have it in gcc16/.
-DOCKERFILE=$SRC/Dockerfile
-[ -f "$SRC/gcc16/Dockerfile" ] && DOCKERFILE=$SRC/gcc16/Dockerfile
-pin() {  # pin ARG: the default of ARG in the 16.2 Dockerfile
-  sed -n "s/^ARG $1=//p" "$DOCKERFILE" | head -n 1
+# The source trees are submodules (both lines). Up to v16.2.0-ce.1 the
+# 16.2 trees are pinned by ARGs in gcc16/Dockerfile instead (the
+# submodules of those tags are the 9.3 trees).
+DOCKERFILE=$SRC/gcc16/Dockerfile
+pin() {  # pin ARG: the default of ARG in the old 16.2 Dockerfile
+  sed -n "s/^ARG $1=//p" "$DOCKERFILE" 2>/dev/null | head -n 1
 }
 # The calling convention doc: docs/sh4-abi.md, docs/sh4/ABI.md in older
 # tags (links to a tag keep pointing at the file that tag has).
 ABI_DOC=docs/sh4-abi.md
 [ -f "$SRC/$ABI_DOC" ] || ABI_DOC=docs/sh4/ABI.md
 sub() {  # sub PATH: the submodule commit at TAG
-  git -C "$SRC" ls-tree HEAD "$1" | awk '{print $3}'
+  git -C "$SRC" ls-tree HEAD "$1" | awk '$2 == "commit" {print $3}'
+}
+url() {  # url PATH: the submodule's repository
+  git config -f "$SRC/.gitmodules" "submodule.$1.url" | sed 's/\.git$//'
 }
 tree() {  # tree REPO COMMIT
   echo "[\`${1#https://github.com/}\` \`${2:0:10}\`]($1/commit/$2)"
 }
+trees() {  # the source tree list, from the ARG pins or the submodules
+  if [ -n "$(pin GCC_COMMIT)" ] && [ "${TAG#v16.}" != "$TAG" ]; then
+    echo "* GCC $(tree "$(pin GCC_REPO)" "$(pin GCC_COMMIT)")"
+    echo "* binutils $(tree "$(pin BINUTILS_REPO)" "$(pin BINUTILS_COMMIT)")"
+    echo "* mingwrt $(tree "$(pin MINGW_REPO)" "$(pin MINGW_COMMIT)")"
+    echo "* w32api $(tree "$(pin W32API_REPO)" "$(pin W32API_COMMIT)")"
+  elif [ -n "$(sub gcc)" ]; then
+    echo "* GCC $(tree "$(url gcc)" "$(sub gcc)")"
+    echo "* binutils $(tree "$(url binutils)" "$(sub binutils)")"
+    echo "* mingwrt $(tree "$(url mingw)" "$(sub mingw)")"
+    echo "* w32api $(tree "$(url w32api)" "$(sub w32api)")"
+  else
+    echo "release-notes.sh: no submodules or pins at $TAG" >&2
+    exit 1
+  fi
+}
+TREES=$(trees)
 
 case $TAG in
 v16.*)
-  [ -n "$(pin GCC_COMMIT)" ] || { echo "release-notes.sh: no pins in $DOCKERFILE" >&2; exit 1; }
   cat <<END
 CeGCC 16.2: GCC 16.2.0 and binutils 2.43.1 cross toolchains for Windows CE
 in one Docker image, both targets in \`/opt/cegcc\` (on \`PATH\`):
@@ -55,10 +74,7 @@ C and C++ (up to C++23), runtime linked statically, threads disabled.
 
 Source trees:
 
-* GCC $(tree "$(pin GCC_REPO)" "$(pin GCC_COMMIT)")
-* binutils $(tree "$(pin BINUTILS_REPO)" "$(pin BINUTILS_COMMIT)")
-* mingwrt $(tree "$(pin MINGW_REPO)" "$(pin MINGW_COMMIT)")
-* w32api $(tree "$(pin W32API_REPO)" "$(pin W32API_COMMIT)")
+$TREES
 END
   ;;
 v9.*)
@@ -72,10 +88,9 @@ toolchains for Windows CE in one Docker image, both targets in
   Microsoft SH-4 compiler ([$ABI_DOC](https://github.com/palian-tech/cegcc-build/blob/$TAG/$ABI_DOC)),
   software floating point (\`-m4-nofpu\`)
 
-Source trees (submodules):
+Source trees:
 
-* GCC \`$(sub gcc | cut -c1-10)\`, binutils \`$(sub binutils | cut -c1-10)\`,
-  mingwrt \`$(sub mingw | cut -c1-10)\`, w32api \`$(sub w32api | cut -c1-10)\`
+$TREES
 END
   ;;
 *)
