@@ -17,13 +17,20 @@ Based on `enlyze/cegcc-build <https://github.com/enlyze/cegcc-build>`_ and
 `MaxKellermann/cegcc-build <https://github.com/MaxKellermann/cegcc-build>`_;
 ``i386-mingw32ce`` from the ENLYZE fork still builds the same way.
 
-Building from source::
+Building from source: the source trees are submodules, pinned to the
+commits a release builds from (``.gitmodules`` names the fork branches of
+this line: ``ce/gcc-9.3.0``, ``ce/binutils-2.34``, ``ce/mingwrt-9``,
+``ce/w32api``)::
 
- git clone https://github.com/palian-tech/cegcc-build
+ git clone --recurse-submodules --shallow-submodules \
+     -b releases/gcc-9 https://github.com/palian-tech/cegcc-build
  cd cegcc-build
- git submodule update --init
  ./build_cf.sh /where/to/install arm-mingw32ce
  ./build_cf.sh /where/to/install sh4-mingw32ce
+
+Each release tag ``vX`` also tags the commits it builds from in the four
+forks as ``cegcc-vX`` (``.github/scripts/tag-forks.sh``, run by the
+release workflow with the secret ``FORKS_TOKEN``).
 
 Docker image (arm-mingw32ce and sh4-mingw32ce)
 ==============================================
@@ -54,9 +61,8 @@ image base 0x10000) following the calling convention of the Microsoft SH-4
 compiler; floating point is software only (``-m4-nofpu``). Link extra
 libraries as usual, e.g. ``-lcommctrl`` or ``-lceddk``.
 
-To build the image yourself::
+To build the image yourself, in that checkout::
 
- git submodule update --init
  docker build --network host -t cegcc .
 
 The image build runs the tests in ``tests/sh4`` before it is published:
