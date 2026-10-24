@@ -22,7 +22,7 @@ submodule pins in this repository are authoritative.
 |---|---|---|
 | `binutils` | `binutils-gdb` (`ce-2.34`) | `bef2f830` add the sh4-mingw32ce target (PE machine 0x01a6, `sh4_wince_pe` emulation, `.rva` in SH gas, dlltool `sh4-wince`); `010f8502` numeric local labels in SH PE gas; `190deabd` no section-end padding in SH PE gas (it broke the import directory of images importing from two DLLs) |
 | `gcc` | `gcc` (`ce-9.3.0-x86`) | `fd2b8155` add the sh4-mingw32ce target (`sh/pe.h`, `sh/sh-pe.c`, `sh/mingw32ce.h`, `TARGET_MSABI` in `sh.c`); `f313aead` settled open ABI questions (3-byte struct in `r0`, `__divls`/`__modls`, fp-bit without MS bit-fields); `5b17b05d` predefine `__declspec`, DLL entry `_DllMainCRTStartup`; `6b1d1531` section alignment up to 8192 bytes (`aligned(8)` and up were rejected) |
-| `mingw` | `mingwrt` (`master`) | `0e274ec` coredll SH division helpers, `_JBLEN` for SH, underscored DLL entry; branch `sh4-mingw32ce-fpu`: `91483ef` … `db06d03` thunks for coredll's floating-point functions (`coredll_fpu.S`, `.lst`, `.sh`) |
+| `mingw` | `mingwrt` (`master`) | `0e274ec` coredll SH division helpers, `_JBLEN` for SH, underscored DLL entry; branch `sh4-mingw32ce-fpu`: `91483ef` … `db06d03` thunks for coredll's floating-point functions (`coredll_fpu.S`, `.lst`, `.sh`); `84e7e0a` `%g` without non-significant trailing zeros (`ecvt()` pads its digits) |
 | `w32api` | `w32api` (`wip`) | `9a0d7c1` coredll SH division helpers, `ceddk.def` and `<ceddk.h>` |
 
 ## Build
@@ -227,3 +227,9 @@ Gate 3b).
   tagged `v9.3.0-ce.3`.
 * The qemu FPU test checks the calling convention against stubs. CRT
   formatting (such as the three-digit exponent) shows only on a device.
+* `%g` (from the 16.2 device run, 2026-10-24): mingwex's `pformat.c`
+  takes its digits from `ecvt()`, which pads them with zeros, and `%g`
+  printed them (`2.5` as `2.50000`). mingwrt `84e7e0a` (the same commit
+  as `ce-16` `5947475`) strips the padding; `fpcheck` has a new check
+  `snprintf %g` (`2.5|0|0.0001|2.50000` for `%g|%g|%g|%#g`). Waits for
+  the device run.
