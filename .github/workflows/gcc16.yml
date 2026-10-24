@@ -3,13 +3,12 @@
 # program EXEs as the workflow artifact cetest-<job name> (with
 # SHA256SUMS). Nothing is published to a registry.
 #
-# Jobs (each one gcc16-build.yml):
-#   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees; only from
-#                    workflow_dispatch with gate1 checked
-#   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned in
-#                    Dockerfile
-#   sh4-gcc16        the same trees for SH-4; the test stage also runs the
-#                    ABI gate (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
+# Jobs (each one gcc16-build.yml), from the trees pinned in the
+# Dockerfile (gcc ce-16.2.0, binutils ce-2.43.1, mingwrt and w32api
+# ce-16):
+#   arm-gcc16   arm-mingw32ce
+#   sh4-gcc16   sh4-mingw32ce; the test stage also runs the ABI gate
+#               (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
 # The image with both targets is published by gcc16-release.yml.
 name: gcc16
 
@@ -27,11 +26,6 @@ on:
   pull_request:
     branches: [releases/gcc-16]
   workflow_dispatch:
-    inputs:
-      gate1:
-        description: Also build the Gate 1 baseline (salman's GCC 14.2 trees)
-        type: boolean
-        default: false
 
 # No cancelling: runs take hours and nothing is published, so an older
 # run's artifacts stay useful.
@@ -43,24 +37,6 @@ permissions:
   contents: read
 
 jobs:
-  # Gate 1 baseline, salman's GCC 14.2 trees: only on request
-  # (workflow_dispatch, gate1).
-  gate1-arm-gcc14:
-    if: ${{ inputs.gate1 }}
-    uses: ./.github/workflows/gcc16-build.yml
-    with:
-      name: gate1-arm-gcc14
-      targets: arm-mingw32ce
-      trees: |
-        GCC_REPO=https://github.com/salman-javed-nz/gcc
-        GCC_COMMIT=de6e9181807529b3034aa9cc56f97daa46bee303
-        BINUTILS_REPO=https://github.com/salman-javed-nz/binutils-gdb
-        BINUTILS_COMMIT=f7f94cdd6b4b254d7b30e1832bfbf7f3c9262a47
-        MINGW_REPO=https://github.com/salman-javed-nz/mingwrt
-        MINGW_COMMIT=7c35691fba55b5947d40c863ba4d0d1775a02b3a
-        W32API_REPO=https://github.com/enlyze/w32api
-        W32API_COMMIT=51de0ad1420f5228fbc340b1fdb057a6b8f710e0
-
   # The CeGCC 16.2 trees (Dockerfile defaults), one job per target.
   toolchain:
     name: ${{ matrix.name }}
