@@ -15,7 +15,7 @@ name: gcc16
 
 on:
   push:
-    branches: [releases/gcc-16, gcc16]
+    branches: [releases/gcc-16]
     paths:
       - 'Dockerfile'
       - 'tests/gcc16/**'
@@ -25,7 +25,7 @@ on:
       - '.github/workflows/gcc16.yml'
       - '.github/workflows/gcc16-build.yml'
   pull_request:
-    branches: [releases/gcc-16, gcc16]
+    branches: [releases/gcc-16]
   workflow_dispatch:
     inputs:
       gate1:
