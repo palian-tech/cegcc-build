@@ -1,0 +1,60 @@
+# One toolchain build of gcc16/Dockerfile and its test program artifact
+# cetest-<name>; called by gcc16.yml.
+name: gcc16 build
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        required: true
+      target:
+        type: string
+        required: true
+      trees:
+        description: build args that pin the source trees (empty = Dockerfile defaults)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    name: ${{ inputs.name }}
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Cached per stage and target, so a test program change does not
+      # rebuild the toolchain.
+      - name: Build the toolchain and the test program
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: gcc16/Dockerfile
+          target: programs
+          build-args: |
+            TARGET=${{ inputs.target }}
+            ${{ inputs.trees }}
+          outputs: type=local,dest=out
+          cache-from: type=gha,scope=gcc16-${{ inputs.name }}
+          cache-to: type=gha,mode=max,scope=gcc16-${{ inputs.name }}
+
+      - name: Test programs
+        run: ls -l out && cat out/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cetest-${{ inputs.name }}
+          path: out/
+          if-no-files-found: error

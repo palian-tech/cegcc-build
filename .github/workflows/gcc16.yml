@@ -3,8 +3,9 @@
 # program EXEs as the workflow artifact cetest-<job name> (with
 # SHA256SUMS). Nothing is published to a registry.
 #
-# Jobs:
-#   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees (Dockerfile defaults)
+# Jobs (each one gcc16-build.yml):
+#   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees (Dockerfile defaults);
+#                    only from workflow_dispatch with gate1 checked
 #   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned
 #   sh4-gcc16        the same trees for SH-4; the test stage also runs the
 #                    ABI gate (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
@@ -20,9 +21,15 @@ on:
       - 'docs/sh4/**'
       - 'build_cf.sh'
       - '.github/workflows/gcc16.yml'
+      - '.github/workflows/gcc16-build.yml'
   pull_request:
     branches: [gcc16]
   workflow_dispatch:
+    inputs:
+      gate1:
+        description: Also build the Gate 1 baseline (salman's GCC 14.2 trees)
+        type: boolean
+        default: false
 
 # No cancelling: runs take hours and nothing is published, so an older
 # run's artifacts stay useful.
@@ -34,17 +41,21 @@ permissions:
   contents: read
 
 jobs:
+  # Gate 1 baseline, pinned to salman's trees (Dockerfile defaults): only
+  # on request (workflow_dispatch, gate1).
+  gate1-arm-gcc14:
+    if: ${{ inputs.gate1 }}
+    uses: ./.github/workflows/gcc16-build.yml
+    with:
+      name: gate1-arm-gcc14
+      target: arm-mingw32ce
+
   toolchain:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 360
     name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: gate1-arm-gcc14
-            target: arm-mingw32ce
-            trees: ""
           - name: arm-gcc16
             target: arm-mingw32ce
             trees: |
@@ -67,37 +78,8 @@ jobs:
               MINGW_COMMIT=87bc83d59495c8c80db9676bb34ab4c89bb02fe1
               W32API_REPO=https://github.com/palian-tech/w32api
               W32API_COMMIT=9a0d7c127dac922cb42b770573ce1260a40e8f0e
-    steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /opt/hostedtoolcache/CodeQL
-          df -h /
-
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      # Cached per stage and target, so a test program change does not
-      # rebuild the toolchain.
-      - name: Build the toolchain and the test program
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: gcc16/Dockerfile
-          target: programs
-          build-args: |
-            TARGET=${{ matrix.target }}
-            ${{ matrix.trees }}
-          outputs: type=local,dest=out
-          cache-from: type=gha,scope=gcc16-${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=gcc16-${{ matrix.name }}
-
-      - name: Test programs
-        run: ls -l out && cat out/SHA256SUMS
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cetest-${{ matrix.name }}
-          path: out/
-          if-no-files-found: error
+    uses: ./.github/workflows/gcc16-build.yml
+    with:
+      name: ${{ matrix.name }}
+      target: ${{ matrix.target }}
+      trees: ${{ matrix.trees }}
