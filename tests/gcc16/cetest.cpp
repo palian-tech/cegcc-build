@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <any>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -772,6 +773,41 @@ Result std_condition_variable()
     return {};
 }
 
+// std::atomic read-modify-writes are library calls on these targets
+// (libgcc's atomic-wince.c): 4 bytes on Interlocked functions, 1 and 2
+// bytes by compare-and-swap of their word, 8 bytes under a lock.
+Result std_atomic()
+{
+    std::atomic<int> i{0};
+    std::atomic<short> h{0};
+    std::atomic<unsigned char> c[4] = {};
+    std::atomic<long long> ll{0};
+    std::atomic<int> cas{0};
+    std::vector<std::thread> ts;
+    for (int t = 0; t < 4; ++t)
+        ts.emplace_back([&, t] {
+            for (int k = 0; k < 1000; ++k) {
+                i.fetch_add(1);
+                h.fetch_sub(1);
+                c[t].fetch_add(1); // neighbours in one word
+                ll.fetch_add(0x100000001LL);
+                int e = cas.load();
+                while (!cas.compare_exchange_weak(e, e + 2))
+                    ;
+                if (k % 100 == 0)
+                    std::this_thread::yield();
+            }
+        });
+    for (auto &t : ts)
+        t.join();
+    EXPECT(i == 4000 && h == -4000 && cas == 8000);
+    EXPECT(c[0] == 1000 % 256 && c[1] == c[0] && c[2] == c[0] &&
+           c[3] == c[0]);
+    EXPECT(ll == 4000 * 0x100000001LL);
+    EXPECT(i.exchange(5) == 4000 && i == 5);
+    return {};
+}
+
 Result std_call_once()
 {
     std::once_flag flag;
@@ -1092,6 +1128,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPWSTR cmdline, int)
     run("std::thread join, detach", std_thread_join);
     run("std::mutex contention", std_mutex_contention);
     run("std::condition_variable", std_condition_variable);
+    run("std::atomic", std_atomic);
     run("std::call_once", std_call_once);
     run("exception inside a std::thread", std_thread_exceptions);
     run("thread_local in a std::thread", std_thread_local);
