@@ -136,8 +136,11 @@ WinMain (HINSTANCE inst, HINSTANCE prev, LPWSTR cmd, int show)
 	  strcmp (dig, "314") == 0 && dec == 1 && sign == 0
 	  ? NULL : "_ecvt (3.14159, 3) == \"314\", dec 1, sign 0", dig);
   snprintf (buf, sizeof buf, "%5.2f|%.3e", (double) pi, (double) pi);
+  /* Windows CE's CRT, like Microsoft's on the desktop, prints a
+     three-digit exponent.  */
   report ("snprintf %f %e", strcmp (buf, " 3.14|3.142e+00") == 0
-	  ? NULL : "\" 3.14|3.142e+00\"", buf);
+	  || strcmp (buf, " 3.14|3.142e+000") == 0
+	  ? NULL : "\" 3.14|3.142e+00\" or \" 3.14|3.142e+000\"", buf);
 
   /* "DONE pass/run" without printf.  */
   strcpy (done, "DONE ");

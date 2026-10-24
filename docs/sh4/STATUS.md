@@ -11,7 +11,7 @@ Branch `sh4-mingw32ce` of `palian-tech/cegcc-build`. Specification:
 | M3 — runtime (mingwrt, w32api), both targets in one prefix | done |
 | M4 — test programs (both targets) | done |
 | M5 — CI, published image | done |
-| M6 — coredll floating-point calls on SH-4 (`/Qsh4` convention), `v9.3.0-ce.3` | built; device run pending |
+| M6 — coredll floating-point calls on SH-4 (`/Qsh4` convention), `v9.3.0-ce.3` | accepted (2026-10-24), device run SH-4 and ARM |
 
 ## Commits per fork
 
@@ -221,4 +221,7 @@ Gate 3b).
   `floor`, `pow`, `fmod`, `ldexp`, `frexp`, `modf`, `_ecvt` called
   directly, `snprintf` `%f`/`%e`); `tests/sh4/prog/build.sh` checks coredll
   imports against `tests/sh4/coredll`.
-* After the device run passes: tag `v9.3.0-ce.3`.
+* Device run of `527f4be` (2026-10-24), SH-4 and ARM: all coredll checks
+  pass and `%f` prints ` 3.14`; `%e` prints `3.142e+000` (three-digit
+  exponent, as Microsoft's CRT), now accepted by `fpcheck`. Accepted;
+  tagged `v9.3.0-ce.3`.
