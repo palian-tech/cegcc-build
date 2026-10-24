@@ -232,8 +232,9 @@ passes it in `r4:r5`. The 9.3 toolchain has the same bug.
   one `float` returned in `r0`; named `float`/`double` arguments of a
   variadic function in FPU registers.
 
-Device run (step f), SH-4 CE 5.0: the four cetest EXEs of the
-`cegcc16-test-programs` artifact. Expected: `-m4-nofpu` as in Gate 4 plus
+Device run (step f), SH-4 CE 5.0: the four cetest EXEs of the artifact
+`cetest-sh4-gcc16` of [run 40094391618](https://github.com/palian-tech/cegcc-build/actions/runs/40094391618)
+(CI green, ABI gate with the FPU test and its mutants passed). Expected: `-m4-nofpu` as in Gate 4 plus
 the new check; `-m4-single` the same results, its header line says
 `sh4 -m4-single`.
 
