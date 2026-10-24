@@ -176,8 +176,60 @@ longer runs for pull requests into `gcc16`.
 2. ARM on 16.2 (`ce-16.2.0` etc.) — same artifacts — **stop**.
 3. SH-4 on 16.2, ABI harness + `open-questions.c` with mutation control,
    artifacts for an SH-4 CE 5.0 device — **stop**.
+3b. SH-4: `double` calls from `-m4-nofpu` code into the `/Qsh4` coredll
+   (thunks in mingwrt), convention in `docs/sh4/ABI.md`, cetest check —
+   **stop** for an SH-4 device run.
+3c. The same fix and cetest check on 9.3 (`sh4-mingw32ce` and its mingwrt
+   branch; the owner lifted the 9.3 rule for this fix only), separate PR —
+   **stop** for a device run; then tag `v9.3.0-ce.3`. Nothing else changes
+   in 9.3.
 4. Image `v16.2.0-ce.1` on ghcr and Docker Hub next to 9.3 tags; README;
-   CI.
+   CI, including moving the actions off Node 20 (checkout,
+   upload-artifact, build-push-action, setup-buildx).
+
+After Gate 4 (owner, 2026-10-24). Same rules. Before each gate: a cost
+estimate; if the remaining budget (ends 2026-11-05) would not cover it,
+stop and leave STATUS.md for another session. At each gate: commits,
+artifacts, what to run, cost so far. After each accepted gate: image tag
+`v16.2.0-ce.N` (next N) on ghcr and Docker Hub, README says which tag has
+which features; the 9.3 tags stay.
+
+5. **SH-4 FPU code generation compatible with MSVC `/Qsh4`.** `float` and
+   `double` in FPU registers, interoperable with the `/Qsh4` CE 5.0 system
+   DLLs, so coredll math and CRT functions work without thunks and
+   floating point is no longer emulated by fp-bit.
+   * Convention first, in ABI.md: argument registers for `float`/`double`,
+     mixed int/float lists, varargs with `float`/`double`, results,
+     callee-saved FPU registers, `FPSCR` at function boundaries (`PR`,
+     `SZ`). If `fl`, `callfl`, `calldbl` are not enough: write a C file
+     with the cases needed and **stop**; the maintainer compiles it with
+     the MSVC SH-4 compiler (`/Qsh4 /O2`) and returns the listings.
+   * An option (for example `-m4-single` with the MS ABI); `-m4-nofpu`
+     stays the unchanged default unless the owner decides otherwise.
+     Runtime libraries (libgcc, libstdc++, mingwrt) for both modes
+     (multilib or two sysroots, with the reason).
+   * Tests: ABI harness with the FPU cases and a mutation control that
+     must fail; cetest in both modes with `float`/`double` arithmetic,
+     coredll math called directly, `printf`/`snprintf` `%f`/`%e`/`%g`,
+     `strtod`.
+   * **Stop** for an SH-4 CE 5.0 device run. 9.3 only on the owner's
+     word.
+6. **Threads on 16.2, both targets** (2b of Gate 0). `--enable-threads`
+   with a gthr layer that works on CE (no SRWLOCK, CONDITION_VARIABLE,
+   InitOnce); starting point GCC 12's gthr-win32 adapted to CE.
+   `thread_local` per thread (emutls on CE TLS), `std::thread`,
+   `std::mutex`, `std::condition_variable`, `std::call_once`.
+   * cetest: `thread_local` + `CreateThread` from XFAIL to PASS; checks
+     for `std::thread` join, mutex contention, condition variable,
+     `call_once`, exceptions thrown and caught inside a thread.
+   * **Stop** for device runs (ARM CE 6/7, SH-4 CE 5.0).
+7. **Usable debug info, both targets.** DWARF in linked PE images that gdb
+   can use: `.secrel32` (or equivalent) in SH gas; check ARM and fix if
+   needed; `gdb` for both targets in the image.
+   * CI: a `-g` cetest; `gdb -batch` on the EXE shows line info for
+     `main` and a check function, and type and location of a local.
+   * **Stop** for a device check: gdb attached through a gdb stub,
+     breakpoint by source line.
 
 ## Rules
 

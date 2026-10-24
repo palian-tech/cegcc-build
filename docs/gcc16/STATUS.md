@@ -11,6 +11,13 @@ Specification: [SPEC.md](SPEC.md).
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | mingwrt thunks + FPU thunk test under qemu-sh4; device run pending (owner) |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | not started (after the 3b device run) |
 | 4 — release `v16.2.0-ce.1` | not started; also moves CI actions off Node 20 |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
+| 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
+| 7 — usable debug info, both targets | after Gate 6; cost estimate first |
+
+Gates 3b–7 are defined in [SPEC.md](SPEC.md#gates) (owner, 2026-10-24).
+From Gate 5 on, each gate starts with a cost estimate and stops if the
+budget (ends 2026-11-05) would not cover it.
 
 Owner pre-approval (2026-10-23 night): continue from Gate 1 into Gate 2
 and from Gate 2 into Gate 3 (if the ABI harness and `open-questions.c`
