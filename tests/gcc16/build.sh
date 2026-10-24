@@ -18,13 +18,13 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$OUT"
 fail() { echo "FAIL: $*"; exit 1; }
 
-# coredll export lists (tests/gcc16/coredll): the CE SDK's and those of a
+# coredll export lists (tests/sh4/coredll): the CE SDK's and those of a
 # reference device.
 case $T in
 sh4-mingw32ce) MACHINE=0x01a6 FMT=pei-sh4-wince-little
-  SDK=$HERE/coredll/ce5-sdk-sh4.txt DEVICE=$HERE/coredll/ref-device-sh4-ce5.txt ;;
+  SDK=$HERE/../sh4/coredll/ce5-sdk-sh4.txt DEVICE=$HERE/../sh4/coredll/ref-device-sh4-ce5.txt ;;
 arm-mingw32ce) MACHINE=0x01c0 FMT=pei-arm-wince-little
-  SDK=$HERE/coredll/ce5-sdk-armv4i.txt DEVICE=$HERE/coredll/ref-device-arm-ce67.txt ;;
+  SDK=$HERE/../sh4/coredll/ce5-sdk-armv4i.txt DEVICE=$HERE/../sh4/coredll/ref-device-arm-ce67.txt ;;
 *) fail "unknown target $T" ;;
 esac
 names() { grep -v '^#' "$1" | sort -u; }

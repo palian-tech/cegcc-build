@@ -1,6 +1,6 @@
 ! Minimal SH-4 Windows CE program in assembly: MessageBoxW (0, msg, msg, 0).
 ! Calls follow the Microsoft convention (16-byte home area, see
-! docs/sh4/msvc-sh4-abi-reference.txt, call2).
+! tests/sh4/abi/ref/msvc-sh4-abi-reference.txt, call2).
 	.text
 	.align	2
 	.global	_WinMainCRTStartup

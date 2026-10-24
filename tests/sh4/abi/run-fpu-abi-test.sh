@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runtime ABI test of -m4-single: links the Microsoft SH-4 compiler's /Qsh4
-# code for tests/sh4/abi/fpu-cases.c (docs/sh4/msvc-sh4-fpu-cases.txt,
+# code for tests/sh4/abi/fpu-cases.c (tests/sh4/abi/ref/msvc-sh4-fpu-cases.txt,
 # re-assembled by msvc2gas.py) with fpu-harness.c compiled by
 # sh4-mingw32ce-gcc -m4-single and runs the result under qemu-sh4.
 #
@@ -42,7 +42,7 @@ if [ "${1:-}" = --count-mutants ]; then
 fi
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-REF="$HERE/../../../docs/sh4/msvc-sh4-fpu-cases.txt"
+REF="$HERE/ref/msvc-sh4-fpu-cases.txt"
 OUT=${1:-$(mktemp -d)}
 T=${TOOL_PREFIX:-sh4-mingw32ce-}
 CC=${CC:-${T}gcc}

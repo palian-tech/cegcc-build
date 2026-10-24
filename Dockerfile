@@ -1,4 +1,4 @@
-# CeGCC on newer GCC (docs/gcc16): toolchains for one or more targets in
+# CeGCC 16.2: toolchains for one or more targets in
 # one prefix (/opt/cegcc), from source trees given by repository and
 # commit, built with this repository's build_cf.sh, plus the test programs.
 #
@@ -80,7 +80,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 WORKDIR /src
-COPY docs docs
 COPY tests tests
 # sh4: binutils test, ABI test against the Microsoft compiler's code under
 # qemu-sh4 and its mutation control, FPU thunk test, -m4-single ABI test

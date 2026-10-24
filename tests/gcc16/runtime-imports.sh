@@ -1,7 +1,7 @@
 #!/bin/bash
 # Toolchain check: the runtime libraries of TARGET (libstdc++, libgcc,
 # mingwrt's libmingw32, libmingwex, libceoldname) import from coredll only
-# functions of the CE SDK's coredll (tests/gcc16/coredll/ce5-sdk-*.txt), so
+# functions of the CE SDK's coredll (tests/sh4/coredll/ce5-sdk-*.txt), so
 # that any program they are linked into loads on every device of that CE
 # version. Links all of them whole into one EXE and reads its imports, for
 # each multilib.
@@ -13,7 +13,7 @@ T=$1
 OUT=${2:-$(mktemp -d)}
 HERE=$(cd "$(dirname "$0")" && pwd)
 case $T in
-sh4-mingw32ce) SDK=$HERE/coredll/ce5-sdk-sh4.txt ;;
+sh4-mingw32ce) SDK=$HERE/../sh4/coredll/ce5-sdk-sh4.txt ;;
 *) echo "runtime-imports.sh: no SDK list for $T"; exit 1 ;;
 esac
 mkdir -p "$OUT"

@@ -8,7 +8,7 @@ targets built into one prefix:
 * ``sh4-mingw32ce`` -- Hitachi/Renesas SH-4 Windows CE 5.0, following the
   calling convention of the Microsoft SH-4 compiler (eVC4). The convention is
   tested by linking real Microsoft-compiled code with GCC code and calling in
-  both directions (``docs/sh4/ABI.md``).
+  both directions (``docs/sh4-abi.md``).
 
 They are published as Docker images (below), so Windows CE programs for
 both CPUs can be built in CI without proprietary tools.
@@ -23,10 +23,10 @@ Branches and tags
 =====================  ======================================================
 Branch                 Use
 =====================  ======================================================
-``releases/gcc-16``    GCC 16.2, binutils 2.43.1 (``docs/gcc16``). Default
+``releases/gcc-16``    GCC 16.2, binutils 2.43.1. Default
                        branch, new work goes here. Release tags
                        ``v16.2.0-ce.N``
-``releases/gcc-9``     GCC 9.3, binutils 2.34 (``docs/sh4``). Maintenance
+``releases/gcc-9``     GCC 9.3, binutils 2.34. Maintenance
                        line, fixes only. Release tags ``v9.3.0-ce.N``
 =====================  ======================================================
 
@@ -45,7 +45,7 @@ Tag                       Content
 ========================  ===================================================
 ``v16.2.0-ce.1``          GCC 16.2, binutils 2.43.1. C++20 and C++23 for both
                           targets; SH-4 calls into coredll's floating-point
-                          functions through thunks (``docs/sh4/ABI.md``). No
+                          functions through thunks (``docs/sh4-abi.md``). No
                           threads (``--disable-threads``); SH-4 floating
                           point in software (``-m4-nofpu``); debug info in
                           linked images not usable yet
@@ -74,19 +74,22 @@ Pull one and compile for each target::
 image base 0x10000) following the calling convention of the Microsoft SH-4
 compiler. Floating point is in software by default (``-m4-nofpu``); since
 GCC 16.2 ``-m4-single`` uses the SH-4 FPU with the calling convention of
-the Microsoft compiler's ``/Qsh4`` (``docs/sh4/ABI.md``), in the next
+the Microsoft compiler's ``/Qsh4`` (``docs/sh4-abi.md``), in the next
 ``v16.2.0-ce.N`` and in ``edge``. Link extra libraries as usual, e.g.
 ``-lcommctrl`` or ``-lceddk``.
 
 Building from source
 ====================
 
-GCC 16.2 (``releases/gcc-16``): the ``Dockerfile`` fetches the trees by commit
-(``palian-tech/gcc`` ``ce-16.2.0``, ``binutils-gdb`` ``ce-2.43.1``,
-``mingwrt`` and ``w32api`` ``ce-16``) and builds both targets with
-``build_cf.sh``::
+GCC 16.2 (``releases/gcc-16``): the ``Dockerfile`` fetches the source
+trees (``palian-tech/gcc``, ``binutils-gdb``, ``mingwrt``, ``w32api``) at
+the commits pinned in its ``ARG`` lines (``GCC_COMMIT``,
+``BINUTILS_COMMIT``, ``MINGW_COMMIT``, ``W32API_COMMIT``) and builds both
+targets with ``build_cf.sh``::
 
- docker build --network host -t cegcc:16 .
+ docker build --network host -t cegcc:16 .                  # the image
+ docker build --network host --target programs \
+     --output type=local,dest=out .                          # tests, test EXEs
 
 GCC 9.3 (``releases/gcc-9``, its own ``Dockerfile``): the trees are
 submodules::
@@ -99,5 +102,39 @@ submodules::
 
 or ``docker build --network host -t cegcc .`` there.
 
-See ``docs/gcc16/STATUS.md`` (16.2) and ``docs/sh4/STATUS.md`` (9.3) for
-the build steps, tests and current status.
+Tests
+=====
+
+The Docker ``test`` stage runs them all; each prints ``PASS``. With the
+tools on ``PATH`` (``python3`` and ``qemu-sh4`` for the SH-4 ones):
+
+* ``tests/gcc16/sh4-abi-gate.sh``: SH-4 binutils test, the calling
+  convention against the Microsoft compiler's code
+  (``tests/sh4/abi/ref``) under qemu-sh4 in both call directions, the
+  coredll floating-point thunks, ``-m4-single`` against ``/Qsh4`` code,
+  each with mutation controls that must fail.
+* ``tests/sh4/prog/run-hello.sh``: ``hello.c`` under qemu-sh4 with real
+  startup code and a stand-in coredll.
+* ``tests/gcc16/runtime-imports.sh``: the runtime libraries import only
+  functions of the CE 5.0 SDK's coredll (``tests/sh4/coredll``).
+* ``tests/gcc16/build.sh TARGET OUTDIR``: builds ``cetest`` (C++20 and
+  C++23; on SH-4 also ``-m4-single``) and checks PE headers and coredll
+  imports. ``cetest`` is the program to run on a device: one
+  ``PASS``/``FAIL``/``XFAIL``/``SKIP`` line per check and a ``DONE`` line,
+  in ``cetest.txt`` next to the EXE.
+
+Known limitations
+=================
+
+* No threads (``--disable-threads``): ``std::thread`` and ``std::mutex``
+  are missing and ``thread_local`` has one copy for all threads.
+* Debug info in linked images is not usable yet (SH gas has no
+  ``.secrel32``).
+* Exceptions are SJLJ and the runtime is linked statically, so an
+  exception cannot cross a DLL boundary.
+* ``dllimport`` is ignored on SH-4; use ``__imp_`` pointers for data
+  exported by DLLs.
+
+Status and plans: the issues `CeGCC 16.2 status
+<https://github.com/palian-tech/cegcc-build/issues/15>`_ and `CeGCC 9.3
+status <https://github.com/palian-tech/cegcc-build/issues/14>`_.

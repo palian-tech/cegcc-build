@@ -1,6 +1,6 @@
 # coredll.lib exports of the Microsoft Windows CE 5.0 Standard SDK, ARMV4I
-# (1659 names). tests/sh4/prog/build.sh: the test programs' coredll
-# imports must be in this list and in the reference device's.
+# (1659 names). tests/gcc16/build.sh: cetest's coredll imports must be in
+# this list and in the reference device's.
 ??0exception@std@@QAA@ABV01@@Z
 ??0exception@std@@QAA@PBD@Z
 ??0exception@std@@QAA@XZ

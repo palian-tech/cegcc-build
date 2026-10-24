@@ -689,7 +689,7 @@ Result c_snprintf()
 // coredll's floating-point functions, called through volatile pointers so
 // that the compiler neither folds nor expands them. On SH-4, coredll is
 // /Qsh4 code that takes and returns double in FPU registers; mingwrt's
-// thunks convert from -m4-nofpu (docs/sh4/ABI.md).
+// thunks convert from -m4-nofpu (docs/sh4-abi.md).
 #ifdef __STRICT_ANSI__
 extern "C" char *_ecvt(double, int, int *, int *); // stdlib.h: GNU modes only
 #endif
@@ -734,7 +734,7 @@ Result coredll_double()
 // printf's floating-point conversions (mingwex, which gets its digits
 // from coredll's _ecvt/_fcvt) and strtod/wcstod (coredll). On SH-4 the
 // -m4-nofpu build reaches coredll through mingwrt's thunks, the
-// -m4-single build directly (docs/sh4/ABI.md).
+// -m4-single build directly (docs/sh4-abi.md).
 Result c_printf_float()
 {
     volatile double vd = 3.14159, vsmall = -0.000123456, vbig = 1234567.0;

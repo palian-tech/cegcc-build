@@ -1,7 +1,7 @@
 /* Runtime ABI test for sh4-mingw32ce.
 
-   The functions of docs/sh4/msvc-sh4-abi-reference.txt and
-   docs/sh4/msvc-sh4-abi-open-questions.txt are re-assembled from the
+   The functions of tests/sh4/abi/ref/msvc-sh4-abi-reference.txt and
+   tests/sh4/abi/ref/msvc-sh4-abi-open-questions.txt are re-assembled from the
    Microsoft compiler's output (msvc2gas.py) and linked with this file,
    compiled by sh4-mingw32ce-gcc.  Calls go both ways:
 

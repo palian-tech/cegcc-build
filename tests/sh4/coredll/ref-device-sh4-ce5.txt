@@ -1,5 +1,5 @@
 # coredll exports of a reference CE 5.0 SH-4 device (1651 names), for the
-# test program import check (tests/sh4/prog/build.sh), not a toolchain
+# cetest import check (tests/gcc16/build.sh), not a toolchain
 # restriction. Device lists are OEM-trimmed: this one lacks 96 names of the
 # SDK list (mostly Crypt* and acm*) and adds 39.
 ??0exception@std@@QAA@ABV01@@Z

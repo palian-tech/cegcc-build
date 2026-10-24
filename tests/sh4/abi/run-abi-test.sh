@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runtime ABI test: links the Microsoft SH-4 compiler's code for the
-# functions of docs/sh4/msvc-sh4-abi-reference.txt and
+# functions of tests/sh4/abi/ref/msvc-sh4-abi-reference.txt and
 # msvc-sh4-abi-open-questions.txt (re-assembled by
 # msvc2gas.py) with harness.c compiled by sh4-mingw32ce-gcc and runs the
 # result under qemu-sh4.  It also writes GCC's code for the same
@@ -13,7 +13,7 @@
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-REF="$HERE/../../../docs/sh4/msvc-sh4-abi-reference.txt"
+REF="$HERE/ref/msvc-sh4-abi-reference.txt"
 OUT=${1:-$(mktemp -d)}
 T=${TOOL_PREFIX:-sh4-mingw32ce-}
 CC=${CC:-${T}gcc}
@@ -29,7 +29,7 @@ ${T}as "$OUT/msvc.s" -o "$OUT/msvc.o"
 # msvc-sh4-abi-open-questions.txt: section 1 is /Qsh4 /O2 (calldbl needs
 # the FPU and is left out), section 2 the same without /Qsh4, from which
 # only the software floating-point calldbl is taken.
-OQ="$HERE/../../../docs/sh4/msvc-sh4-abi-open-questions.txt"
+OQ="$HERE/ref/msvc-sh4-abi-open-questions.txt"
 python3 -I "$HERE/msvc2gas.py" "$OQ" "$OUT/msvc-oq.s" \
     _call_r7 _callv_r7 _take_r7 _retS3 _retS5 _retS6p _useS3 _useS6p \
     _callc _retc _takec _keepmac _divs

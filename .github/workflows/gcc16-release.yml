@@ -1,4 +1,4 @@
-# CeGCC 16.2 image (docs/gcc16): both targets (arm-mingw32ce and
+# CeGCC 16.2 image: both targets (arm-mingw32ce and
 # sh4-mingw32ce) in /opt/cegcc, from the trees pinned in the Dockerfile.
 # Runs the tests and builds the test programs for both targets (artifact
 # cegcc16-test-programs, with SHA256SUMS), then builds the image.

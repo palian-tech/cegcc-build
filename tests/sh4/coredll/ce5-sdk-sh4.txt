@@ -1,6 +1,8 @@
 # coredll.lib exports of the Microsoft Windows CE 5.0 Standard SDK, SH-4
-# (1708 names). tests/sh4/prog/build.sh: the test programs' coredll
-# imports must be in this list and in the reference device's.
+# (1708 names). Toolchain check: the runtime libraries of
+# sh4-mingw32ce import only these (tests/gcc16/runtime-imports.sh).
+# tests/gcc16/build.sh: cetest's coredll imports must be in this list and
+# in the reference device's.
 ??0exception@std@@QAA@ABV01@@Z
 ??0exception@std@@QAA@PBD@Z
 ??0exception@std@@QAA@XZ
