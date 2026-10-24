@@ -10,7 +10,7 @@ Specification: [SPEC.md](SPEC.md).
 | 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
-| 4 — release `v16.2.0-ce.1` | in progress: one image with both targets (`gcc16-release.yml`), README, actions on Node 24 |
+| 4 — release `v16.2.0-ce.1` | built, stopped for the owner: both-target image dry run green ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628), artifact `cegcc16-test-programs`); then merge into `gcc16`, fast-forward `master`, tag `v16.2.0-ce.1` on `master` (owner pushes tags) |
 | 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | after Gate 4; cost estimate first |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
@@ -177,6 +177,19 @@ passes it in `r4:r5`. The 9.3 toolchain has the same bug.
 * cetest: new check `coredll double functions` (`sqrt`, `floor`, `pow`,
   `fmod`, `atan2`, `ldexp`, `frexp`, `modf`, `strtod`, `_ecvt`, `sqrtf`
   through volatile pointers). The SH-4 link map shows the thunks linked.
+
+## Gate 4 — image `v16.2.0-ce.1` (2026-10-24)
+
+* `gcc16/Dockerfile` builds all targets in `TARGETS` (default both) into
+  `/opt/cegcc`; defaults are the CeGCC 16.2 trees. Uncached build of both
+  targets with tests: 36 min on `ubuntu-24.04`.
+* `gcc16-release.yml`: `v16.*` tag → `:<tag>` and `:latest`; push to
+  `master` → `:edge`; ghcr.io and Docker Hub. Pull requests that change
+  the workflow build without pushing.
+* 9.3 (`releases/gcc-9`, PR #5): `:gcc9` and `:gcc9-edge` instead of
+  `:latest`/`:edge`.
+* Actions on Node 24: checkout v7, upload-artifact v7, setup-buildx v4,
+  build-push v7, metadata v6, login v4.
 
 ## Gate 0 findings (short)
 
