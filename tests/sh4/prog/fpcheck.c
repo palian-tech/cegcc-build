@@ -100,7 +100,7 @@ WinMain (HINSTANCE inst, HINSTANCE prev, LPWSTR cmd, int show)
   double (*volatile p_frexp) (double, int *) = frexp;
   double (*volatile p_modf) (double, double *) = modf;
   char *(*volatile p_ecvt) (double, int, int *, int *) = _ecvt;
-  volatile double pi = 3.14159;
+  volatile double pi = 3.14159, half5 = 2.5, zero = 0.0, tenth4 = 0.0001;
   WCHAR path[MAX_PATH + 16];
   char done[32], buf[64] = "";
   int e = 0, dec = 0, sign = 1;
@@ -141,6 +141,11 @@ WinMain (HINSTANCE inst, HINSTANCE prev, LPWSTR cmd, int show)
   report ("snprintf %f %e", strcmp (buf, " 3.14|3.142e+00") == 0
 	  || strcmp (buf, " 3.14|3.142e+000") == 0
 	  ? NULL : "\" 3.14|3.142e+00\" or \" 3.14|3.142e+000\"", buf);
+  /* %g drops non-significant trailing zeros, %#g keeps them.  */
+  snprintf (buf, sizeof buf, "%g|%g|%g|%#g", (double) half5, (double) zero,
+	    (double) tenth4, (double) half5);
+  report ("snprintf %g", strcmp (buf, "2.5|0|0.0001|2.50000") == 0
+	  ? NULL : "\"2.5|0|0.0001|2.50000\"", buf);
 
   /* "DONE pass/run" without printf.  */
   strcpy (done, "DONE ");
