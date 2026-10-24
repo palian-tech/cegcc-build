@@ -1,0 +1,78 @@
+# CeGCC on newer GCC (docs/gcc16): builds the toolchains of gcc16/Dockerfile
+# and the test program tests/gcc16/cetest.cpp, and uploads the test
+# program EXEs as the workflow artifact cetest-<job name> (with
+# SHA256SUMS). Nothing is published to a registry.
+#
+# Jobs (each one gcc16-build.yml):
+#   gate1-arm-gcc14  salman-javed-nz's GCC 14.2 trees; only from
+#                    workflow_dispatch with gate1 checked
+#   arm-gcc16        our ce-16.2.0 / ce-2.43.1 / ce-16 branches, pinned in
+#                    gcc16/Dockerfile
+#   sh4-gcc16        the same trees for SH-4; the test stage also runs the
+#                    ABI gate (tests/gcc16/sh4-abi-gate.sh) under qemu-sh4
+# The image with both targets is published by gcc16-release.yml.
+name: gcc16
+
+on:
+  push:
+    branches: [master, gcc16]
+    paths:
+      - 'gcc16/**'
+      - 'tests/gcc16/**'
+      - 'tests/sh4/**'
+      - 'docs/sh4/**'
+      - 'build_cf.sh'
+      - '.github/workflows/gcc16.yml'
+      - '.github/workflows/gcc16-build.yml'
+  pull_request:
+    branches: [master, gcc16]
+  workflow_dispatch:
+    inputs:
+      gate1:
+        description: Also build the Gate 1 baseline (salman's GCC 14.2 trees)
+        type: boolean
+        default: false
+
+# No cancelling: runs take hours and nothing is published, so an older
+# run's artifacts stay useful.
+concurrency:
+  group: gcc16-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Gate 1 baseline, salman's GCC 14.2 trees: only on request
+  # (workflow_dispatch, gate1).
+  gate1-arm-gcc14:
+    if: ${{ inputs.gate1 }}
+    uses: ./.github/workflows/gcc16-build.yml
+    with:
+      name: gate1-arm-gcc14
+      targets: arm-mingw32ce
+      trees: |
+        GCC_REPO=https://github.com/salman-javed-nz/gcc
+        GCC_COMMIT=de6e9181807529b3034aa9cc56f97daa46bee303
+        BINUTILS_REPO=https://github.com/salman-javed-nz/binutils-gdb
+        BINUTILS_COMMIT=f7f94cdd6b4b254d7b30e1832bfbf7f3c9262a47
+        MINGW_REPO=https://github.com/salman-javed-nz/mingwrt
+        MINGW_COMMIT=7c35691fba55b5947d40c863ba4d0d1775a02b3a
+        W32API_REPO=https://github.com/enlyze/w32api
+        W32API_COMMIT=51de0ad1420f5228fbc340b1fdb057a6b8f710e0
+
+  # The CeGCC 16.2 trees (gcc16/Dockerfile defaults), one job per target.
+  toolchain:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: arm-gcc16
+            target: arm-mingw32ce
+          - name: sh4-gcc16
+            target: sh4-mingw32ce
+    uses: ./.github/workflows/gcc16-build.yml
+    with:
+      name: ${{ matrix.name }}
+      targets: ${{ matrix.target }}

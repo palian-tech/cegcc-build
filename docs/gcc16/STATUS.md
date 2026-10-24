@@ -4,11 +4,192 @@ Specification: [SPEC.md](SPEC.md).
 
 | Gate | State |
 |---|---|
-| 0 — survey, plan, estimate | done (2026-10-23), waiting for the owner |
-| 1 — ARM on GCC 14.2 (salman), probe on `clarion-qy8` | not started |
-| 2 — ARM on GCC 16.2 | not started |
-| 3 — SH-4 on GCC 16.2 | not started |
-| 4 — release `v16.2.0-ce.1` | not started |
+| 0 — survey, plan, estimate | done, accepted by the owner (2026-10-23) |
+| 1 — ARM on GCC 14.2 (salman), probe on an ARM CE 6/7 device | built; artifact `cetest-gate1-arm-gcc14` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40035217009)) |
+| 2 — ARM on GCC 16.2 | accepted (2026-10-24): device run C++20/C++23 without FAILs |
+| 3 — SH-4 on GCC 16.2 | device run: all PASS except `snprintf` `%f` → Gate 3b |
+| 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
+| 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
+| 4 — release `v16.2.0-ce.1` | accepted (2026-10-24): device run of the combined image's programs ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628)), SH-4 and ARM: C++20 `DONE 16/16 xfail=1 skip=3`, C++23 `DONE 17/17 xfail=1 skip=2`; merged into `gcc16` and `master`, tag by the owner |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | next; cost estimate first |
+| 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
+| 7 — usable debug info, both targets | after Gate 6; cost estimate first |
+
+Gates 3b–7 are defined in [SPEC.md](SPEC.md#gates) (owner, 2026-10-24).
+From Gate 5 on, each gate starts with a cost estimate and stops if the
+budget (ends 2026-11-05) would not cover it.
+
+Owner pre-approval (2026-10-23 night): continue from Gate 1 into Gate 2
+and from Gate 2 into Gate 3 (if the ABI harness and `open-questions.c`
+pass) without waiting for device runs; stop before Gate 4. Device
+acceptance runs come later and may send work back.
+
+## Resume here
+
+Work branch: `claude/project-thread-1if7mo` (pull request into `gcc16`).
+
+Branch layout (SPEC.md, Rules): 9.3 moves to `releases/gcc-9` (rename of
+`sh4-mingw32ce` in GitHub, then
+[PR #4](https://github.com/palian-tech/cegcc-build/pull/4) for its
+workflow triggers); `master` becomes the 16.2 line at Gate 4 (merge
+`gcc16`, tag `v16.2.0-ce.1` there). This branch already contains
+`sh4-mingw32ce` up to `v9.3.0-ce.3`. Tags cannot be pushed from the
+session (HTTP 403); the owner pushes them.
+
+| Tree | Branch | Commit | Content |
+|---|---|---|---|
+| `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
+| `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix + SH-4 weak/linkonce fix |
+| `palian-tech/mingwrt` | `ce-16` | `149c99770d` | salman `7c35691` + our `0e274ec` + `struct timespec` + SH-4 coredll FPU thunks |
+| `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
+
+Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
+Build: `gcc16/Dockerfile`, whose defaults pin the commits above and build
+both targets into one prefix (`TARGETS`). `.github/workflows/gcc16.yml`
+builds one target per job; `gcc16-release.yml` builds the image with both
+and publishes it for a `v16.*` tag. Since Gate 4 both targets use the same
+trees: the binutils and mingwrt commits that only `sh4-gcc16` used change
+SH-4 code only (`bfd/coff-sh.c`; mingwrt's thunks are built for
+`sh4-mingw32ce` only).
+
+## Gate 1 (2026-10-23)
+
+* `gcc16/Dockerfile` fetches salman's trees by commit and builds them with
+  our `build_cf.sh` (`GCC_THREADS=no`), binutils without gdb/sim.
+* `tests/gcc16/cetest.cpp` built as C++20 and C++23 with salman's GCC
+  14.2 in this session: both compile, link `-static`, import only
+  `COREDLL.dll` (two descriptors: mingwrt's and w32api's import libs;
+  harmless for the loader, tolerated by `build.sh`). Not run: no CE
+  device or emulator here.
+* Expected on the device: `XFAIL thread_local with CreateThread`,
+  `SKIP std::thread and std::mutex`, `SKIP exception across a DLL`.
+  Everything else should `PASS`; any `FAIL` is a finding.
+* `swprintf` is not declared by salman's mingwrt for CE; the test uses
+  `_snwprintf` (coredll). `small` is a macro from `rpcndr.h`
+  (via `windows.h`) — avoid it as an identifier.
+
+## Gate 2 — ARM on GCC 16.2
+
+* gcc: salman's 21 commits cherry-picked onto `releases/gcc-16.2.0`; 3
+  conflicts resolved by hand: `arm-protos.h` (PE prototypes get their own
+  `#ifdef TREE_CODE`), `system_error.cc` (16.2's NULL check kept, strerror
+  skipped on CE), `c++23/print.cc` (whole file under `#ifndef UNDER_CE`).
+* Build fixes found by building (one commit each on `ce-16.2.0`):
+  * `arm.cc`: GCC 16 removed the arm-pe target and with it the
+    `#ifndef ARM_PE` around `arm_encode_section_info`/`arm_file_end` that
+    the WinCE commit relies on; restored, and `TARGET_ENCODE_SECTION_INFO`
+    is `arm_pe_encode_section_info` on PE.
+  * `config.gcc`: `i386/t-cygming` moved to `mingw/t-cygming` (provides
+    `msformat-c.o`); dropped the never-existing `arm/t-cygming`,
+    `arm/t-mingw32`.
+  * libstdc++ `system_error.cc`: CE has no `FormatMessageA`; use
+    `FormatMessageW` + `WideCharToMultiByte`.
+  * libstdc++ `tzdb.cc`: no `GetModuleHandleExA` /
+    `GetDynamicTimeZoneInformation` on CE; Windows zone detection off
+    (`current_zone()` falls back to UTC).
+  * mingwrt `time.h`: `struct timespec` (C11), needed by libstdc++'s
+    `this_thread::sleep_for` since GCC 15; it sleeps with `Sleep()`.
+* The C++ `std` module (`import std;`) does not compile against the CE
+  runtime (no `long double` math, `rewind`, `system`, …); libstdc++'s own
+  fallback builds without it. Not a goal for CE.
+* cetest with GCC 16.2: C++20 and C++23 compile, import only
+  `COREDLL.dll`, same set of coredll functions as with GCC 14.2.
+* binutils: **2.47 is released (2026-07-26) but no 2.47 source was
+  reachable from the session** (sourceware, GNU mirrors and the GitHub
+  binutils mirror are blocked or need auth). Gates 2 and 3 use salman's
+  2.43.1 (+ our SH-4 port). GCC 16 does not need newer binutils for
+  ARMv4/v5 PE. Moving to 2.47 is a separate step: rebase `ce-2.43.1`
+  (18 commits) onto `binutils-2_47` from a machine that can reach
+  sourceware.
+
+## Gate 3 — SH-4 on GCC 16.2
+
+* binutils SH-4 port 2.34 → 2.43.1: conflicts in `dlltool.c` (new
+  `MAARCH64` machine, extra bool field in `mtable`),
+  `binutils/configure{,.ac}`, `ld/Makefile.{am,in}`, `ld/emultempl/pe.em`
+  (`IMAGE_SUBSYSTEM_WINDOWS_CE_GUI` branch), `TRUE`→`true`. Generated
+  files edited by hand (same lines as `configure.ac` / `Makefile.am`).
+  `tests/sh4/binutils-test.sh` passes.
+* gcc: our 4 SH-4 commits onto `ce-16.2.0`: `sh.c`→`sh.cc`,
+  `sh-pe.c`→`sh-pe.cc`; the attribute table is a `TARGET_GNU_ATTRIBUTES`
+  macro now (dllimport/dllexport added through `SH_PE_ATTRIBUTES`);
+  `sh_setup_incoming_varargs` takes `function_arg_info` and skips the
+  advance for `f(...)` (C23 `TYPE_NO_NAMED_ARGS_STDARG_P`);
+  `DBX_REGISTER_NUMBER` → `DEBUGGER_REGNO`; `dbxcoff.h` gone; `.opt`
+  without `Report`, plus `mingw32ce.opt.urls`; no `i386/t-gthr-win32`.
+* `UNDER_CE` was defined only in GNU modes (`builtin_define_std`), so
+  with `-std=c++20` libstdc++'s CE guards were skipped and `<cstdlib>` did
+  not compile. Now defined in ISO modes too, as on ARM. **The 9.3 SH-4
+  toolchain has the same bug** (not touched here).
+* `tests/gcc16/sh4-abi-gate.sh` (run by the `sh4-gcc16` job): binutils
+  test, `tests/sh4/abi/run-abi-test.sh` (reference functions and
+  `open-questions.c` functions, MSVC code ↔ GCC 16 code) — all checks
+  pass under qemu-sh4; mutation control: the same test with
+  `-fpcc-struct-return` must fail, and does (`retS4`, `retS3`).
+  `tests/sh4/prog/run-hello.sh` passes (division helpers `_divls`,
+  `_divlu`, `_modls`, `_modlu`).
+* `cetest` on SH-4 did not link: undefined weak symbols
+  (`__cxa_pure_virtual`, `_ITM_*` from libgcc/libstdc++) were reported
+  as errors by `coff-sh.c`, and `.linkonce` sections were not merged.
+  binutils `a9e4309579`: undefined weak resolves to its default (or 0),
+  and the SH-4 CE vector gets `SEC_LINK_ONCE | SEC_LINK_DUPLICATES`. A
+  two-TU COMDAT test links on both targets; `cetest` C++20 and C++23 now
+  build for SH-4 and import only `COREDLL.dll`.
+
+## Gate 3b — SH-4 `double` calls into coredll (2026-10-24)
+
+Device run of Gate 3: `FAIL snprintf: got "-17|str|ff|z| 0.00"`. mingwex's
+`snprintf` gets its digits from coredll's `_ecvt`/`_fcvt`; the SH-4 coredll
+is `/Qsh4` code and takes the `double` in `dr4`, while `-m4-nofpu` code
+passes it in `r4:r5`. The 9.3 toolchain has the same bug.
+
+* The `/Qsh4` convention, decoded from the MSVC listings already in the
+  repository (`fl`, `callfl`, `calldbl`): [ABI.md](../sh4/ABI.md#calls-into-qsh4-code-coredll-floating-point).
+  `double` arguments in `dr4`, `dr6` (even register = high word), still
+  taking their integer slots; `double` result in `dr0`; `FPSCR.PR` =
+  `SZ` = 0 at calls.
+* mingwrt `149c99770d` (`coredll_fpu.S`, `.lst`, `.sh`): thunks replace
+  the jump stubs in `libcoredll.a` (51 functions) and `libceoldname.a` (15
+  old names). Saved/restored: `PR`, `FPSCR`.
+* w32api installs its own `libcoredll.a` after mingwrt's (the first CI
+  run had no thunks; the FPU test caught it). `build_cf.sh` now runs
+  mingwrt's `coredll_fpu.sh` on the installed `libcoredll.a` and
+  `libcoredll6.a` for sh4-mingw32ce (idempotent).
+* Early device run of `8ef7cde`: the EXE did not load. ld pulled the
+  `sqrtf` import member in through `__imp__sqrtf` although the thunk
+  uses `sqrt`, and the CE 5.0 SH-4 coredll has no `sqrtf` (of the `float`
+  math functions only `ceilf`, `floorf`, `fmodf`). mingwrt `149c99770d`
+  removes the import members of rerouted functions.
+* coredll export lists (owner, `tests/gcc16/coredll/`): the CE 5.0
+  Standard SDK's `coredll.lib` for SH-4 and ARMV4I, and the coredll of a
+  reference CE 5.0 SH-4 device and a reference CE 6/7 ARM device
+  (OEM-trimmed). `runtime-imports.sh` (SH-4 job): the runtime libraries
+  linked whole import 163 coredll functions, all in the SDK list.
+  `build.sh`: cetest imports must be in SDK ∩ device list, both targets.
+* Unsupported (listed in ABI.md): `_cabs`/`cabs`, `_frnd`, `_fsqrt`, and
+  `%f`-style conversions in coredll's own `printf`/`scanf` family called
+  directly (`_snprintf`, `_snwprintf`, `swprintf`, ...).
+* `tests/sh4/fpu/run-fpu-test.sh` (in `sh4-abi-gate.sh`): the installed
+  thunks against Microsoft's `/Qsh4` `calldbl` and `fl` and a recording
+  callee, under qemu-sh4 with `FPSCR.PR` set: 26 checks pass; swapping the
+  word order fails it. `sh4-abi-gate.sh` now uses `pipefail` (a failing
+  test piped into `tee` did not fail the gate before).
+* cetest: new check `coredll double functions` (`sqrt`, `floor`, `pow`,
+  `fmod`, `atan2`, `ldexp`, `frexp`, `modf`, `strtod`, `_ecvt`, `sqrtf`
+  through volatile pointers). The SH-4 link map shows the thunks linked.
+
+## Gate 4 — image `v16.2.0-ce.1` (2026-10-24)
+
+* `gcc16/Dockerfile` builds all targets in `TARGETS` (default both) into
+  `/opt/cegcc`; defaults are the CeGCC 16.2 trees. Uncached build of both
+  targets with tests: 36 min on `ubuntu-24.04`.
+* `gcc16-release.yml`: `v16.*` tag → `:<tag>` and `:latest`; push to
+  `master` → `:edge`; ghcr.io and Docker Hub. Pull requests that change
+  the workflow build without pushing.
+* 9.3 (`releases/gcc-9`, PR #5): `:gcc9` and `:gcc9-edge` instead of
+  `:latest`/`:edge`.
+* Actions on Node 24: checkout v7, upload-artifact v7, setup-buildx v4,
+  build-push v7, metadata v6, login v4.
 
 ## Gate 0 findings (short)
 
@@ -31,7 +212,7 @@ Specification: [SPEC.md](SPEC.md).
 
 | Gate | Work | Estimate | Main risk |
 |---|---|---|---|
-| 1 | Dockerfile stage for salman's trees, test program, LeafSDTools ARM build, Actions workflow with artifacts (builds run on Actions, not in the session) | 8–12 | LeafSDTools needs patches for GCC 14 (stricter C, `-Werror`) |
+| 1 | Dockerfile stage for salman's trees, test program, Actions workflow with artifacts (builds run on Actions, not in the session) | 8–12 | test program needs CE workarounds in salman's runtime |
 | 2 | Forward-port 20 commits + 14 binutils commits, iterate on build errors (ARM backend, libstdc++ C++23 bits) | 12–20 | `arm.cc`/`pe.cc` hook drift; each rebuild cycle ~20 min of CI |
 | 2b (optional) | CE `gthr` (CRITICAL_SECTION + TLS) to get `std::thread`/`std::mutex`/per-thread `thread_local` | 6–10 | gthreads API surface (`__gthread_cond_*` for `condition_variable`) |
 | 3 | Port SH-4 GCC (4 commits) + binutils (3 commits) to 16.2, ABI harness + mutation control, artifacts | 12–20 | `sh.cc` drift; binutils SH PE on newer bfd |
@@ -48,3 +229,4 @@ run, when we know whether threads matter on-device.
 | Gate | Spent |
 |---|---|
 | 0 | ~3 (estimate; survey only, no builds) |
+| 1–3 | not metered from inside the session; check account usage (one long session, local GCC 16 builds for both targets) |

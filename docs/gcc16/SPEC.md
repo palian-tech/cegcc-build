@@ -6,10 +6,10 @@ cost: [STATUS.md](STATUS.md).
 
 ## Targets
 
-| Target | Units | CPU / OS |
-|---|---|---|
-| `arm-mingw32ce` | Clarion QY8 | ARM, CE 7.0-based |
-| `sh4-mingw32ce` | Clarion QY7 | SH-4, CE 5.0 |
+| Target | CPU / OS |
+|---|---|
+| `arm-mingw32ce` | ARM, Windows CE 6 / 7 |
+| `sh4-mingw32ce` | SH-4, Windows CE 5.0 |
 
 Compiler: GCC 16.2.0 (`releases/gcc-16.2.0`, tag object `1831ac03`).
 Languages: C, C++ (`-std=c++20`, `-std=c++23` where it compiles).
@@ -125,28 +125,128 @@ and the `config.gcc` stanza to be the bulk. The ABI harness
 
 ## Test program
 
-`tests/gcc16/cetest.cpp` (written in Gate 1): one line per check,
-`PASS` / `FAIL <reason>` / `SKIP <reason>`, through `OutputDebugStringW`
-and into `cetest.txt` next to the EXE; final line `DONE n/m`. Checks as
-listed in the brief (static ctors/dtors, `new`/`delete`, containers,
-vocabulary types, lambdas/`std::function`, exceptions incl. DLL,
-`thread_local` + `CreateThread`, `std::thread`/`std::mutex` or `SKIP`,
-`snprintf`/`wcs*`, 64-bit division). Built `-std=c++20` and, separately,
-`-std=c++23`.
+`tests/gcc16/cetest.cpp` (written in Gate 1), built by
+`tests/gcc16/build.sh TARGET OUTDIR` as `-std=c++20` and, separately,
+`-std=c++23` (a C++23 build that does not compile is reported, not
+fatal), linked `-static`, imports `COREDLL.dll` only. One line per check
+through `OutputDebugStringW` and into `cetest.txt` next to the EXE:
+`PASS`, `FAIL <reason>`, `XFAIL <reason>` (known limitation of the
+build), `XPASS` (a known limitation that passed), `SKIP <reason>`; last
+line `DONE pass/run xfail=n skip=n`. Exit code = FAIL + XPASS count.
+
+Checks: static ctors (order), function-local statics, static dtors and
+`atexit` order (the EXE runs itself with `--child-dtor` and reads the
+file the child writes at exit), `new`/`delete` incl. arrays, nothrow,
+over-aligned, smart pointers; containers; vocabulary types
+(`optional`, `variant`/`visit`, `any`, `string_view`, `span`;
+`expected`, `to_underlying`, `string::contains` in the C++23 build);
+lambdas/`std::function`; exceptions (one function, unwinding through
+6 frames with destructors, class hierarchy, rethrow, `exception_ptr`,
+throw from a member constructor, library exceptions); `thread_local`
+in the main thread and with `CreateThread`; `std::thread`/`std::mutex`;
+coredll `double` functions called directly (`sqrt`, `pow`, `_ecvt`, ...); `snprintf` (`%f`, C99 truncation, `%lld`), `wcs*`/`_snwprintf`/`swprintf`;
+64-bit and 32-bit division, shifts, int64↔double.
+
+Decided by the owner (Gate 0 review):
+
+* Exception across a DLL: `SKIP` (runtime linked statically, no shared
+  libgcc/libstdc++).
+* `thread_local` with `CreateThread`: `XFAIL` while GCC is built
+  `--disable-threads`; `std::thread`/`std::mutex`: `SKIP` then. Both
+  become plain checks when `_GLIBCXX_HAS_GTHREADS` is defined.
+* For 2b, restoring GCC 12's pre-Vista `gthr-win32` (CRITICAL_SECTION,
+  TLS slots) may be cheaper than a new thread layer; cost it first.
+
+## Build layout
+
+`gcc16/Dockerfile` builds the targets in `TARGETS` (default: both) into
+one prefix from source trees given as repository + commit build arguments
+(defaults: the CeGCC 16.2 trees) with this repository's `build_cf.sh`
+(`GCC_THREADS=no` → `--disable-threads`), then the test program. Workflow
+`.github/workflows/gcc16.yml` runs it per target and uploads
+`cetest-<job>` (EXEs + `SHA256SUMS`); `gcc16-release.yml` builds the image
+with both targets and, for a `v16.*` tag, pushes it to ghcr.io and Docker
+Hub with `:latest`; pushes to `master` publish `:edge`. The 9.3 line
+publishes `:gcc9` (newest `v9.3.0-ce.N`) and `:gcc9-edge` (owner,
+2026-10-24). The 9.3 `Dockerfile` is unchanged;
+`image.yml` on this branch no longer runs for pull requests into `gcc16`
+or for `v16.*` tags.
 
 ## Gates
 
 0. Survey, this document, estimate — **stop**.
-1. Salman's ARM 14.2 in Docker (our layout) + test program + LeafSDTools
-   `TARGET=arm` as Actions artifacts — **stop**, architect runs on
-   `clarion-qy8`. Fail → work ends.
+1. Salman's ARM 14.2 in Docker (our layout) + test program as Actions
+   artifacts — **stop**, the owner runs the test program on an ARM CE 6/7
+   device. Fail → work ends.
 2. ARM on 16.2 (`ce-16.2.0` etc.) — same artifacts — **stop**.
 3. SH-4 on 16.2, ABI harness + `open-questions.c` with mutation control,
-   artifacts for `clarion-qy7` — **stop**.
+   artifacts for an SH-4 CE 5.0 device — **stop**.
+3b. SH-4: `double` calls from `-m4-nofpu` code into the `/Qsh4` coredll
+   (thunks in mingwrt), convention in `docs/sh4/ABI.md`, cetest check —
+   **stop** for an SH-4 device run.
+3c. The same fix and cetest check on 9.3 (`sh4-mingw32ce` and its mingwrt
+   branch; the owner lifted the 9.3 rule for this fix only), separate PR —
+   **stop** for a device run; then tag `v9.3.0-ce.3`. Nothing else changes
+   in 9.3.
 4. Image `v16.2.0-ce.1` on ghcr and Docker Hub next to 9.3 tags; README;
-   CI.
+   CI, including moving the actions off Node 20 (checkout,
+   upload-artifact, build-push-action, setup-buildx).
+
+After Gate 4 (owner, 2026-10-24). Same rules. Before each gate: a cost
+estimate; if the remaining budget (ends 2026-11-05) would not cover it,
+stop and leave STATUS.md for another session. At each gate: commits,
+artifacts, what to run, cost so far. After each accepted gate: image tag
+`v16.2.0-ce.N` (next N) on ghcr and Docker Hub, README says which tag has
+which features; the 9.3 tags stay.
+
+5. **SH-4 FPU code generation compatible with MSVC `/Qsh4`.** `float` and
+   `double` in FPU registers, interoperable with the `/Qsh4` CE 5.0 system
+   DLLs, so coredll math and CRT functions work without thunks and
+   floating point is no longer emulated by fp-bit.
+   * Convention first, in ABI.md: argument registers for `float`/`double`,
+     mixed int/float lists, varargs with `float`/`double`, results,
+     callee-saved FPU registers, `FPSCR` at function boundaries (`PR`,
+     `SZ`). If `fl`, `callfl`, `calldbl` are not enough: write a C file
+     with the cases needed and **stop**; the maintainer compiles it with
+     the MSVC SH-4 compiler (`/Qsh4 /O2`) and returns the listings.
+   * An option (for example `-m4-single` with the MS ABI); `-m4-nofpu`
+     stays the unchanged default unless the owner decides otherwise.
+     Runtime libraries (libgcc, libstdc++, mingwrt) for both modes
+     (multilib or two sysroots, with the reason).
+   * Tests: ABI harness with the FPU cases and a mutation control that
+     must fail; cetest in both modes with `float`/`double` arithmetic,
+     coredll math called directly, `printf`/`snprintf` `%f`/`%e`/`%g`,
+     `strtod`.
+   * **Stop** for an SH-4 CE 5.0 device run. 9.3 only on the owner's
+     word.
+6. **Threads on 16.2, both targets** (2b of Gate 0). `--enable-threads`
+   with a gthr layer that works on CE (no SRWLOCK, CONDITION_VARIABLE,
+   InitOnce); starting point GCC 12's gthr-win32 adapted to CE.
+   `thread_local` per thread (emutls on CE TLS), `std::thread`,
+   `std::mutex`, `std::condition_variable`, `std::call_once`.
+   * cetest: `thread_local` + `CreateThread` from XFAIL to PASS; checks
+     for `std::thread` join, mutex contention, condition variable,
+     `call_once`, exceptions thrown and caught inside a thread.
+   * **Stop** for device runs (ARM CE 6/7, SH-4 CE 5.0).
+7. **Usable debug info, both targets.** DWARF in linked PE images that gdb
+   can use: `.secrel32` (or equivalent) in SH gas; check ARM and fix if
+   needed; `gdb` for both targets in the image.
+   * CI: a `-g` cetest; `gdb -batch` on the EXE shows line info for
+     `main` and a check function, and type and location of a local.
+   * **Stop** for a device check: gdb attached through a gdb stub,
+     breakpoint by source line.
 
 ## Rules
 
+Gates build only this repository's own test programs. Application builds
+are done outside the repository; no application, product or device names
+in this repository.
+
 New branches only (`gcc16` here, `ce-16.2.0` / `ce-16` in forks). The
 `sh4-mingw32ce` and 9.3 branches and existing tags are not touched.
+
+Branch layout (owner, 2026-10-24): `sh4-mingw32ce` is renamed to
+`releases/gcc-9`, the 9.3 maintenance line (fixes only, tags
+`v9.3.0-ce.N`). At Gate 4, `gcc16` is merged into `master`, which becomes
+the 16.2 line (tags `v16.2.0-ce.N`). The target name `sh4-mingw32ce`
+does not change.

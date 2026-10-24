@@ -14,6 +14,12 @@
 # Several targets can share one prefix; build them one after the other.
 # Build directories are build-TARGET/* in the current directory.
 #
+# GCC_THREADS (environment) is the --enable-threads model of GCC, default
+# win32; "no" builds GCC with --disable-threads (GCC 13 and later need
+# Vista APIs for win32 threads, which Windows CE does not have).
+# BINUTILS_FLAGS (environment) adds options to the binutils configure,
+# e.g. "--disable-gdb --disable-sim".
+#
 # Written by Colin Finck for ENLYZE GmbH
 #
 
@@ -30,6 +36,7 @@ if [[ $# -lt 2 ]]; then
 fi
 
 J="-j `nproc`"
+GCC_THREADS="${GCC_THREADS:-win32}"
 OLDPATH="$PATH"
 PREFIXDIR="$1"
 TARGET="$2"
@@ -54,7 +61,7 @@ cd binutils
 "${SRCDIR}"/binutils/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
     --disable-multilib --disable-werror --enable-lto --enable-plugins \
     --with-zlib=yes --disable-nls --disable-unit-tests --disable-shared \
-    --without-python
+    --without-python ${BINUTILS_FLAGS:-}
 make $J
 make install
 cd ..
@@ -81,6 +88,11 @@ echo "# INITIAL GCC                    #"
 echo "##################################"
 
 ADDITIONAL_GCC_PARAMETERS=""
+if [[ "$GCC_THREADS" = "no" ]]; then
+       ADDITIONAL_GCC_PARAMETERS+="--disable-threads "
+else
+       ADDITIONAL_GCC_PARAMETERS+="--enable-threads=${GCC_THREADS} "
+fi
 if [[ "$TARGET" = "arm-mingw32ce" || "$TARGET" = "sh4-mingw32ce" ]]; then
        ADDITIONAL_GCC_PARAMETERS+="--disable-__cxa_atexit"
 fi
@@ -94,7 +106,7 @@ cd gcc
 "${SRCDIR}"/gcc/configure --prefix="${PREFIXDIR}" --target="${TARGET}" --with-pkgversion="ENLYZE" \
     --enable-languages=c,c++ --disable-shared --disable-multilib --disable-nls \
     --disable-werror --disable-win32-registry --disable-libstdcxx-verbose \
-    --enable-threads=win32 ${ADDITIONAL_GCC_PARAMETERS}
+    ${ADDITIONAL_GCC_PARAMETERS}
 
 # Only build and install GCC so far to let us build low-level CE binaries.
 make $J all-gcc
@@ -132,6 +144,17 @@ cd w32api
 make $J
 make install
 cd ..
+
+# sh4-mingw32ce: w32api installs its own libcoredll.a over mingw's. Give it
+# mingw's thunks for coredll's floating-point functions too
+# (mingw/coredll_fpu.sh, docs/sh4/ABI.md).
+if [ "$TARGET" = "sh4-mingw32ce" ] && [ -f "${SRCDIR}"/mingw/coredll_fpu.sh ]; then
+    for lib in libcoredll.a libcoredll6.a; do
+        CC=${TARGET}-gcc AR=${TARGET}-ar NM=${TARGET}-nm OBJCOPY=${TARGET}-objcopy \
+            sh "${SRCDIR}"/mingw/coredll_fpu.sh "${PREFIXDIR}/${TARGET}/lib/$lib" \
+            coredll "${SRCDIR}"/mingw
+    done
+fi
 
 
 # Continue building the rest of GCC as before.
