@@ -42,6 +42,8 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gh runs outside a checkout (tools/ and src/ are subdirectories).
+      GH_REPO: ${{ github.repository }}
       TAG: ${{ inputs.tag }}
       RUN_ID: ${{ inputs.programs_run }}
       NOTES: ${{ inputs.notes }}
