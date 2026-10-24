@@ -10,6 +10,8 @@
 # cetest-sh4-mingw32ce-gccN-m4-single-c++20.exe, ...-c++23.exe), N being
 # the GCC major version (default OUTDIR: out/ in the current directory). A C++23 build that does
 # not compile is reported and skipped; the C++20 build must succeed.
+# Also cetest-TARGET-gccN-g-c++20.exe: -g -O0, not stripped, for gdb
+# (tests/gcc16/gdb-check.sh and the device check with a gdb stub).
 set -eu
 
 T=$1
@@ -84,4 +86,12 @@ for std in c++20 c++23; do
   [[ -s $base.log ]] || rm -f "$base.log"
 done
 done
+
+# Debug build: DWARF in the linked image, read by TARGET-gdb.
+base=$OUT/cetest-$T-$GCCV-g-c++20
+"$T-g++" -std=c++20 -g -O0 -Wall -D_WIN32_WCE=0x500 "$HERE/cetest.cpp" \
+  -o "$base.exe" ${LDFLAGS/ -s/} 2> "$base.log" \
+  || { cat "$base.log"; fail "cetest -g does not compile for $T"; }
+[[ -s $base.log ]] || rm -f "$base.log"
+check "$base.exe"
 echo "PASS: cetest for $T"
