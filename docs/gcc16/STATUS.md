@@ -11,7 +11,7 @@ Specification: [SPEC.md](SPEC.md).
 | 3b — SH-4 `double` calls into coredll (`/Qsh4`) | accepted (2026-10-24): device run of `073501a` ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40071702415)) C++20 16/16, C++23 17/17, no FAILs |
 | 3c — the same fix on 9.3, tag `v9.3.0-ce.3` | accepted (2026-10-24): device run of [PR #3](https://github.com/palian-tech/cegcc-build/pull/3) `527f4be`, SH-4 and ARM; `%e` prints a three-digit exponent (Microsoft CRT), test expectation fixed |
 | 4 — release `v16.2.0-ce.1` | accepted (2026-10-24): device run of the combined image's programs ([run](https://github.com/palian-tech/cegcc-build/actions/runs/40084926628)), SH-4 and ARM: C++20 `DONE 16/16 xfail=1 skip=3`, C++23 `DONE 17/17 xfail=1 skip=2`; merged into `gcc16` and `master`, tag by the owner |
-| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | steps a–e done (2026-10-24): `-m4-single` with the `/Qsh4` convention, multilib, FPU ABI test passes under qemu with 6 mutation controls; waits for the SH-4 device run of the `-m4-single` cetest programs (step f) |
+| 5 — SH-4 FPU code generation (MSVC `/Qsh4`) | accepted (2026-10-24): `-m4-single` with the `/Qsh4` convention, multilib, FPU ABI test under qemu with 6 mutation controls; device run (step f) of both modes without an FPU ABI failure; merged ([PR #6](https://github.com/palian-tech/cegcc-build/pull/6)). Follow-up: `%g` trailing zeros in mingwex fixed, device run passes ([PR #10](https://github.com/palian-tech/cegcc-build/pull/10)) |
 | 6 — threads on 16.2, both targets | after Gate 5; cost estimate first |
 | 7 — usable debug info, both targets | after Gate 6; cost estimate first |
 
@@ -38,16 +38,13 @@ session (HTTP 403); the owner pushes them.
 
 | Tree | Branch | Commit | Content |
 |---|---|---|---|
-| `palian-tech/gcc` | `ce-16.2.0-fpu` | `f76b763b70` | `ce-16.2.0` (`43596e5d45`, Gate 4) + `-m4-single` with the `/Qsh4` convention (Gate 5) |
-| `palian-tech/gcc` | `ce-16.2.0` | `43596e5d45` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes |
+| `palian-tech/gcc` | `ce-16.2.0` | `f76b763b70` | `releases/gcc-16.2.0` + salman's 21 `ce-14.2.0` commits + our 4 SH-4 commits + 7 GCC 16 fixes (`43596e5d45`, Gate 4) + `-m4-single` with the `/Qsh4` convention (Gate 5) |
 | `palian-tech/binutils-gdb` | `ce-2.43.1` | `a9e4309579` | salman's `ce-2.43.1` + our 3 SH-4 commits + TRUE→true fix + SH-4 weak/linkonce fix |
-| `palian-tech/mingwrt` | `ce-16-m4-single` | `2bc99735f4` | `ce-16` + the float functions for `-m4-single` (Gate 5) |
-| `palian-tech/mingwrt` | `ce-16` | `149c99770d` | salman `7c35691` + our `0e274ec` + `struct timespec` + SH-4 coredll FPU thunks |
+| `palian-tech/mingwrt` | `ce-16` | `59474758ca` | salman `7c35691` + our `0e274ec` + `struct timespec` + SH-4 coredll FPU thunks + the float functions for `-m4-single` (Gate 5) + `%g` without trailing zeros |
 | `palian-tech/w32api` | `ce-16` | `9a0d7c127d` | = our `sh4-mingw32ce` (enlyze `51de0ad` + `9a0d7c1`) |
 
 Salman's trees are `github.com/salman-javed-nz/{gcc,binutils-gdb,mingwrt}`.
-Build: `gcc16/Dockerfile`, whose defaults pin the commits above (the Gate 5
-branches while Gate 5 is open) and build
+Build: `gcc16/Dockerfile`, whose defaults pin the commits above and build
 both targets into one prefix (`TARGETS`). `.github/workflows/gcc16.yml`
 builds one target per job; `gcc16-release.yml` builds the image with both
 and publishes it for a `v16.*` tag. Since Gate 4 both targets use the same
@@ -237,6 +234,33 @@ Device run (step f), SH-4 CE 5.0: the four cetest EXEs of the artifact
 (CI green, ABI gate with the FPU test and its mutants passed). Expected: `-m4-nofpu` as in Gate 4 plus
 the new check; `-m4-single` the same results, its header line says
 `sh4 -m4-single`.
+
+Result (owner, 2026-10-24, SH-4 CE 5.0 and ARM): all four SH-4 EXEs start
+and finish, `-m4-nofpu` and `-m4-single` alike: C++20 16/17, C++23 17/18,
+`coredll double functions` passes with `-m4-single`; ARM C++20 16/17. The
+one FAIL, on both targets and in both modes, is the new check:
+`got "3.142|3.142e+000|-0.000123456|1.23457e+006|2.50000|5.0"`. Not an
+FPU ABI issue; Gate 5 accepted, PR #6 merged, `ce-16.2.0-fpu` and
+`ce-16-m4-single` fast-forwarded into `ce-16.2.0` and `ce-16`.
+
+### Follow-up: `%g` trailing zeros
+
+* Cause: mingwex's `pformat.c` is built without `__gdtoa()` and takes
+  its digits from `ecvt()`, which pads them with zeros to the precision;
+  `%g` counted the padding as significant digits (`2.50000`,
+  `1.00000e+010`). Fix (mingwrt `ce-16` `5947475`, and the same commit on
+  `sh4-mingw32ce` for 9.3 as `84e7e0a`): strip the padding as
+  `__gdtoa()` mode 2 does, a zero reported as `"0"`. `%e`, `%f` and
+  `%#g` put back the zeros they need. Checked on the host with glibc's
+  `ecvt()` against 33 cases (`%g`, `%#g`, `%e`, `%G`, widths, zero, `-0`).
+* cetest: the check is split into `printf %f %e %g` (with more `%g`/`%#g`
+  cases) and `strtod, wcstod`, so a format failure does not hide the
+  parsing checks.
+* Device run (owner, 2026-10-24) of [run 40098583615](https://github.com/palian-tech/cegcc-build/actions/runs/40098583615):
+  SH-4 `-m4-nofpu` and `-m4-single` C++20 18/18, C++23 19/19; ARM C++20
+  18/18. `%g` and `strtod, wcstod` pass; only the expected
+  `thread_local` XFAIL. Accepted, merged
+  ([PR #10](https://github.com/palian-tech/cegcc-build/pull/10)).
 
 ## Gate 0 findings (short)
 
