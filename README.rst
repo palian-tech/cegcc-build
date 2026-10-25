@@ -130,7 +130,9 @@ tools on ``PATH`` (``python3`` and ``qemu-sh4`` for the SH-4 ones):
   a ``DONE`` line, in ``cetest.txt`` next to the EXE.
 * ``tests/gcc16/gdb-check.sh TARGET OUTDIR``: the target's gdb reads the
   ``-g`` build: line info for ``WinMain`` and a check function, and the
-  type and frame location of two of its locals.
+  type and frame location of two of its locals; then connects to
+  ``tests/gcc16/gdb-stub.py``, a minimal remote stub like an emulator's
+  (no ``qGetTIBAddr``, an XML target description on ARM).
 
 Known limitations
 =================
@@ -145,7 +147,10 @@ Known limitations
 * Debug info: ``-g`` images carry DWARF that the image's
   ``arm-mingw32ce-gdb`` and ``sh4-mingw32ce-gdb`` read (link without
   ``-s``). There is no gdbserver for Windows CE; attach gdb to an
-  emulator's gdb stub. On ARM, an 8-byte local (``double``,
+  emulator's gdb stub (``target remote``). DWARF names source files by
+  the paths they were compiled from: the runtime libraries and the CI's
+  ``cetest`` were built under ``/src``, so point gdb at a checkout with
+  ``set substitute-path /src <path of the cegcc-build checkout>``. On ARM, an 8-byte local (``double``,
   ``long long``) in a function whose frame GCC realigns has no location
   at ``-O0`` outside its first use.
 * Exceptions are SJLJ and the runtime is linked statically, so an
