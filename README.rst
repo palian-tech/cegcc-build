@@ -132,7 +132,9 @@ tools on ``PATH`` (``python3`` and ``qemu-sh4`` for the SH-4 ones):
   ``-g`` build: line info for ``WinMain`` and a check function, and the
   type and frame location of two of its locals; then connects to
   ``tests/gcc16/gdb-stub.py``, a minimal remote stub like an emulator's
-  (no ``qGetTIBAddr``, an XML target description on ARM).
+  (no ``qGetTIBAddr``, an XML target description on ARM), and writes and
+  reads back the 8-byte locals of that function, which ARM keeps in a
+  realigned block of the frame.
 
 Known limitations
 =================
@@ -150,9 +152,7 @@ Known limitations
   emulator's gdb stub (``target remote``). DWARF names source files by
   the paths they were compiled from: the runtime libraries and the CI's
   ``cetest`` were built under ``/src``, so point gdb at a checkout with
-  ``set substitute-path /src <path of the cegcc-build checkout>``. On ARM, an 8-byte local (``double``,
-  ``long long``) in a function whose frame GCC realigns has no location
-  at ``-O0`` outside its first use.
+  ``set substitute-path /src <path of the cegcc-build checkout>``.
 * Exceptions are SJLJ and the runtime is linked statically, so an
   exception cannot cross a DLL boundary.
 * ``dllimport`` is ignored on SH-4; use ``__imp_`` pointers for data

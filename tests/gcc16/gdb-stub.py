@@ -4,8 +4,8 @@
   gdb-stub.py ARCH PC          (ARCH: arm or sh4; PC: hex address)
 
 Speaks the remote protocol on stdin/stdout (gdb: target remote | ...),
-like the gdb stub of an emulator: stopped with SIGTRAP at PC, all memory
-reads as zeros, no qGetTIBAddr. For arm it sends an XML target
+like the gdb stub of an emulator: stopped with SIGTRAP at PC, memory
+reads as zeros until gdb writes it, no qGetTIBAddr. For arm it sends an XML target
 description with the core registers only (r0-r15, cpsr), as QEMU does,
 which gdb can only use when it is built with expat; without it, gdb
 expects the old FPA register layout and rejects the 'g' reply.
@@ -14,6 +14,7 @@ import sys
 
 ARCH = sys.argv[1]
 PC = int(sys.argv[2], 16)
+MEM = {}
 
 ARM_XML = """<?xml version="1.0"?>
 <!DOCTYPE target SYSTEM "gdb-target.dtd">
@@ -60,15 +61,21 @@ def reply(pkt):
     if pkt == "g":
         return regs()
     if pkt.startswith("m"):
-        length = int(pkt[1:].split(",")[1], 16)
-        return "00" * length
+        addr, length = (int(x, 16) for x in pkt[1:].split(","))
+        return "".join("%02x" % MEM.get(addr + i, 0) for i in range(length))
+    if pkt.startswith("M"):
+        where, data = pkt[1:].split(":")
+        addr = int(where.split(",")[0], 16)
+        for i, b in enumerate(bytes.fromhex(data)):
+            MEM[addr + i] = b
+        return "OK"
     if pkt.startswith(("Hg", "Hc")) or pkt == "qSymbol::":
         return "OK"
     if pkt == "qAttached":
         return "1"
     if pkt.startswith("D"):
         return "OK"
-    # qGetTIBAddr, p, Z0, vCont?, qC, qOffsets ...: not supported.
+    # qGetTIBAddr, p, X, Z0, vCont?, qC, qOffsets ...: not supported.
     return ""
 
 

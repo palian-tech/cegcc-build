@@ -6,8 +6,9 @@
 # location of two of its locals. Then connects gdb to a minimal remote
 # stub (gdb-stub.py, stopped in c_snprintf, like an emulator's gdb stub:
 # no qGetTIBAddr, and for ARM an XML target description of the core
-# registers only) and checks that the connection holds and the frame is
-# found.
+# registers only) and checks that the connection holds, the frame is
+# found, and the 8-byte locals of c_snprintf, which ARM keeps in a
+# realigned block of the frame, can be written and read back.
 #
 #   tests/gcc16/gdb-check.sh TARGET EXEDIR
 set -euo pipefail
@@ -57,12 +58,32 @@ out=$("$T-gdb" -batch -nx \
   -ex "target remote | python3 $(dirname "$0")/gdb-stub.py ${T%%-*} $pc" \
   -ex 'frame' \
   -ex 'print $sp' \
-  "$EXE" 2>&1)
+  -ex 'info address vd' \
+  -ex 'set var vd = 2.5' \
+  -ex 'set var vll = -1234567890123' \
+  -ex 'set var vull = 18446744073709551615' \
+  -ex 'print vd' \
+  -ex 'print vll' \
+  -ex 'print vull' \
+  -ex 'print (unsigned long)&vd % 8 + (unsigned long)&vll % 8 + (unsigned long)&vull % 8' \
+  "$EXE" 2>&1) || true  # the checks below report what failed
 grep -q '^#0  .*c_snprintf () at .*cetest\.cpp:[0-9]' <<<"$out" \
   || fail "remote stub: no frame in c_snprintf"
 grep -q '^\$1 = .*0x100000' <<<"$out" || fail "remote stub: wrong registers"
+# The value history numbers count only the prints.
+grep -qx '\$2 = 2.5' <<<"$out" || fail "remote stub: vd has no location"
+grep -qx '\$3 = -1234567890123' <<<"$out" || fail "remote stub: vll has no location"
+grep -qx '\$4 = 18446744073709551615' <<<"$out" \
+  || fail "remote stub: vull has no location"
+if [[ $T = arm-* ]]; then
+  # GCC realigns the frame for them (8-byte alignment, 4-byte stack): the
+  # location computes the aligned base from the frame base.
+  grep -A4 '^Symbol "vd" is' <<<"$out" | grep -q 'DW_OP_and' \
+    || fail "remote stub: c_snprintf frame is not realigned"
+  grep -qx '\$5 = 0' <<<"$out" || fail "remote stub: 8-byte locals not 8-byte aligned"
+fi
 if grep -qi 'qGetTIBAddr\|Truncated register\|internal-error' <<<"$out"; then
   fail "remote stub: errors"
 fi
 
-echo "PASS: $T gdb reads $(basename "$EXE"): line info for WinMain and c_snprintf, type and frame location of its locals; remote stub connection works"
+echo "PASS: $T gdb reads $(basename "$EXE"): line info for WinMain and c_snprintf, type and frame location of its locals; remote stub connection works, 8-byte locals readable"
