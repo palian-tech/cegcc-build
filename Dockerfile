@@ -21,13 +21,13 @@ FROM ${BASE_IMAGE} AS build-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential flex bison texinfo file \
-        libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libncurses-dev \
+        libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libncurses-dev libexpat1-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY build_cf.sh ./
 
 FROM build-base AS binutils
-ARG BINUTILS_FLAGS="--disable-gdbserver --disable-sim"
+ARG BINUTILS_FLAGS="--disable-gdbserver --disable-sim --with-expat"
 ARG TARGETS="arm-mingw32ce sh4-mingw32ce"
 ARG PREFIX=/opt/cegcc
 COPY binutils binutils
@@ -55,7 +55,7 @@ RUN for t in ${TARGETS}; do \
 FROM ${BASE_IMAGE} AS image
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        make libgmp10 libmpfr6 libmpc3 zlib1g \
+        make libgmp10 libmpfr6 libmpc3 zlib1g libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 ARG PREFIX=/opt/cegcc
 COPY --from=gcc ${PREFIX} ${PREFIX}
